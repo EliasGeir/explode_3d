@@ -1,0 +1,560 @@
+package templates
+
+import (
+	"encoding/json"
+	"fmt"
+	"net/url"
+	"strings"
+	"3dmodels/internal/models"
+)
+
+// fileURL encodes a relative file path for use in /files/ URLs.
+func fileURL(path string) string {
+	parts := strings.Split(path, "/")
+	for i, p := range parts {
+		parts[i] = url.PathEscape(p)
+	}
+	return "/files/" + strings.Join(parts, "/")
+}
+
+type ModelDetailData struct {
+	Model      models.Model3D
+	AllTags    []models.Tag
+	AllAuthors []models.Author
+	Images     []string
+	Subdirs    []string
+}
+
+type viewableFile struct {
+	URL  string `json:"url"`
+	Ext  string `json:"ext"`
+	Name string `json:"name"`
+}
+
+func getViewableFiles(files []models.ModelFile) []viewableFile {
+	var result []viewableFile
+	for _, f := range files {
+		if isHiddenFile(f.FileName) {
+			continue
+		}
+		ext := strings.ToLower(f.FileExt)
+		if ext == ".stl" || ext == ".obj" {
+			result = append(result, viewableFile{
+				URL:  fileURL(f.FilePath),
+				Ext:  ext,
+				Name: f.FileName,
+			})
+		}
+	}
+	return result
+}
+
+func viewableFilesJSON(files []models.ModelFile) string {
+	vf := getViewableFiles(files)
+	if len(vf) == 0 {
+		return "[]"
+	}
+	b, _ := json.Marshal(vf)
+	return string(b)
+}
+
+func formatSize(size int64) string {
+	if size < 1024 {
+		return fmt.Sprintf("%d B", size)
+	}
+	if size < 1024*1024 {
+		return fmt.Sprintf("%.1f KB", float64(size)/1024)
+	}
+	return fmt.Sprintf("%.1f MB", float64(size)/(1024*1024))
+}
+
+func safeID(s string) string {
+	var b strings.Builder
+	for _, c := range s {
+		if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') {
+			b.WriteRune(c)
+		} else {
+			b.WriteRune('-')
+		}
+	}
+	return b.String()
+}
+
+func isHiddenFile(name string) bool {
+	return strings.HasPrefix(name, ".")
+}
+
+func visibleFiles(files []models.ModelFile) []models.ModelFile {
+	var result []models.ModelFile
+	for _, f := range files {
+		if !isHiddenFile(f.FileName) {
+			result = append(result, f)
+		}
+	}
+	return result
+}
+
+func isViewableExt(ext string) bool {
+	e := strings.ToLower(ext)
+	return e == ".stl" || e == ".obj"
+}
+
+func viewerIndexOf(f models.ModelFile, files []models.ModelFile) int {
+	idx := 0
+	for _, ff := range files {
+		if isHiddenFile(ff.FileName) {
+			continue
+		}
+		if ff.FilePath == f.FilePath {
+			return idx
+		}
+		if isViewableExt(ff.FileExt) {
+			idx++
+		}
+	}
+	return -1
+}
+
+func imagesJSON(images []string) string {
+	if len(images) == 0 {
+		return "[]"
+	}
+	urls := make([]string, len(images))
+	for i, img := range images {
+		urls[i] = "/files/" + img
+	}
+	b, _ := json.Marshal(urls)
+	return string(b)
+}
+
+templ ModelDetailPage(data ModelDetailData) {
+	<div class="mb-4">
+		<a href="/" class="text-indigo-400 hover:text-indigo-300 text-sm">&larr; Back to models</a>
+	</div>
+	<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+		<!-- Left column: viewer + images -->
+		<div class="lg:col-span-2 space-y-4">
+			<!-- 3D Viewer -->
+			if vf := getViewableFiles(data.Model.Files); len(vf) > 0 {
+				<div class="bg-gray-800 rounded-lg overflow-hidden">
+					<div
+						id="viewer-container"
+						class="w-full aspect-[4/3] relative"
+						data-files={ viewableFilesJSON(data.Model.Files) }
+					>
+						<div id="viewer-loading" class="absolute inset-0 flex items-center justify-center bg-gray-800">
+							<div class="text-gray-400">Loading 3D model...</div>
+						</div>
+					</div>
+					<!-- File navigation bar -->
+					if len(vf) > 1 {
+						<div class="flex items-center gap-2 px-4 py-2 bg-gray-750 border-t border-gray-700">
+							<button
+								id="viewer-prev-btn"
+								class="p-1 text-gray-400 hover:text-white transition-colors"
+							>
+								<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+								</svg>
+							</button>
+							<div class="flex-1 overflow-x-auto">
+								<div class="flex gap-1" id="file-tabs">
+									for i, f := range vf {
+										<button
+											data-file-index={ fmt.Sprintf("%d", i) }
+											class={ "file-tab-btn px-3 py-1 rounded text-xs font-medium whitespace-nowrap transition-colors",
+												templ.KV("bg-indigo-600 text-white", i == 0),
+												templ.KV("bg-gray-700 text-gray-300 hover:bg-gray-600", i != 0) }
+										>
+											{ f.Name }
+										</button>
+									}
+								</div>
+							</div>
+							<span id="viewer-file-counter" class="text-xs text-gray-500 flex-shrink-0">
+								{ fmt.Sprintf("1/%d", len(vf)) }
+							</span>
+							<button
+								id="viewer-next-btn"
+								class="p-1 text-gray-400 hover:text-white transition-colors"
+							>
+								<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+								</svg>
+							</button>
+						</div>
+					}
+				</div>
+				<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+				<script src="/static/js/viewer3d.js"></script>
+			} else {
+				<div class="bg-gray-800 rounded-lg overflow-hidden">
+					<div class="w-full aspect-[4/3] flex items-center justify-center bg-gray-700">
+						<p class="text-gray-400">No viewable 3D file found</p>
+					</div>
+				</div>
+			}
+			<!-- Image gallery -->
+			if len(data.Images) > 0 {
+				<div class="bg-gray-800 rounded-lg p-4">
+					<h3 class="text-sm font-medium text-gray-300 mb-3">
+						{ fmt.Sprintf("Images (%d)", len(data.Images)) }
+					</h3>
+					<div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2" id="image-gallery">
+						for i, img := range data.Images {
+							<div
+								class="aspect-square rounded-lg overflow-hidden bg-gray-700 cursor-pointer hover:ring-2 hover:ring-indigo-500 transition-all"
+								data-gallery-index={ fmt.Sprintf("%d", i) }
+							>
+								<img
+									src={ fileURL(img) }
+									alt="Render"
+									class="gallery-img w-full h-full object-cover"
+									loading="lazy"
+								/>
+							</div>
+						}
+					</div>
+				</div>
+				<!-- Lightbox -->
+				<div
+					id="lightbox"
+					class="hidden fixed inset-0 bg-black/90 z-50 flex items-center justify-center"
+				>
+					<button
+						id="lightbox-prev-btn"
+						class="absolute left-4 top-1/2 -translate-y-1/2 p-2 text-white/70 hover:text-white bg-black/50 rounded-full"
+					>
+						<svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+						</svg>
+					</button>
+					<img id="lightbox-img" class="max-w-[90vw] max-h-[85vh] object-contain rounded-lg"/>
+					<button
+						id="lightbox-next-btn"
+						class="absolute right-4 top-1/2 -translate-y-1/2 p-2 text-white/70 hover:text-white bg-black/50 rounded-full"
+					>
+						<svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+						</svg>
+					</button>
+					<div class="absolute top-4 right-4 flex items-center gap-4">
+						<span id="lightbox-counter" class="text-white/70 text-sm"></span>
+						<button id="lightbox-close-btn" class="text-white/70 hover:text-white text-2xl">&times;</button>
+					</div>
+				</div>
+				<script>
+					(function() {
+						var currentIdx = 0;
+						var gallery = document.getElementById('image-gallery');
+						var lightbox = document.getElementById('lightbox');
+						if (!gallery || !lightbox) return;
+
+						var imgs = gallery.querySelectorAll('.gallery-img');
+
+						function updateLightbox() {
+							document.getElementById('lightbox-img').src = imgs[currentIdx].src;
+							document.getElementById('lightbox-counter').textContent = (currentIdx + 1) + '/' + imgs.length;
+						}
+
+						gallery.addEventListener('click', function(e) {
+							var item = e.target.closest('[data-gallery-index]');
+							if (!item) return;
+							currentIdx = parseInt(item.dataset.galleryIndex);
+							updateLightbox();
+							lightbox.classList.remove('hidden');
+						});
+
+						document.getElementById('lightbox-prev-btn').addEventListener('click', function(e) {
+							e.stopPropagation();
+							currentIdx = (currentIdx - 1 + imgs.length) % imgs.length;
+							updateLightbox();
+						});
+
+						document.getElementById('lightbox-next-btn').addEventListener('click', function(e) {
+							e.stopPropagation();
+							currentIdx = (currentIdx + 1) % imgs.length;
+							updateLightbox();
+						});
+
+						document.getElementById('lightbox-close-btn').addEventListener('click', function() {
+							lightbox.classList.add('hidden');
+						});
+
+						lightbox.addEventListener('click', function(e) {
+							if (e.target === lightbox) {
+								lightbox.classList.add('hidden');
+							}
+						});
+
+						document.addEventListener('keydown', function(e) {
+							if (lightbox.classList.contains('hidden')) return;
+							if (e.key === 'Escape') lightbox.classList.add('hidden');
+							if (e.key === 'ArrowLeft') {
+								currentIdx = (currentIdx - 1 + imgs.length) % imgs.length;
+								updateLightbox();
+							}
+							if (e.key === 'ArrowRight') {
+								currentIdx = (currentIdx + 1) % imgs.length;
+								updateLightbox();
+							}
+						});
+					})();
+				</script>
+			}
+		</div>
+		<!-- Right column: info panel -->
+		<div class="space-y-6">
+			<div id="model-info">
+				@ModelInfo(data)
+			</div>
+			<!-- Tags -->
+			<div id="tag-section">
+				@TagSection(data.Model.Tags, data.AllTags, data.Model.ID)
+			</div>
+			<!-- Files -->
+			if vFiles := visibleFiles(data.Model.Files); len(vFiles) > 0 {
+				<div class="bg-gray-800 rounded-lg p-4">
+					<h3 class="text-sm font-medium text-gray-300 mb-3">
+						{ fmt.Sprintf("Files (%d)", len(vFiles)) }
+					</h3>
+					<div class="space-y-1 max-h-64 overflow-y-auto" id="file-list">
+						for _, f := range vFiles {
+							if isViewableExt(f.FileExt) {
+								<div
+									data-file-index={ fmt.Sprintf("%d", viewerIndexOf(f, data.Model.Files)) }
+									class="file-list-item flex items-center justify-between text-sm p-1.5 rounded cursor-pointer hover:bg-gray-700 transition-colors"
+								>
+									<div class="flex items-center space-x-2 min-w-0">
+										<span class="px-2 py-0.5 bg-indigo-600/30 text-indigo-300 rounded text-xs uppercase flex-shrink-0">{ f.FileExt }</span>
+										<span class="text-gray-300 truncate">{ f.FileName }</span>
+									</div>
+									<span class="text-gray-500 text-xs flex-shrink-0 ml-2">{ formatSize(f.FileSize) }</span>
+								</div>
+							} else {
+								<div class="flex items-center justify-between text-sm p-1.5">
+									<div class="flex items-center space-x-2 min-w-0">
+										<span class="px-2 py-0.5 bg-gray-700 rounded text-xs text-gray-300 uppercase flex-shrink-0">{ f.FileExt }</span>
+										<span class="text-gray-300 truncate">{ f.FileName }</span>
+									</div>
+									<span class="text-gray-500 text-xs flex-shrink-0 ml-2">{ formatSize(f.FileSize) }</span>
+								</div>
+							}
+						}
+					</div>
+				</div>
+			}
+			<!-- Path info -->
+			<div class="bg-gray-800 rounded-lg p-4">
+				<h3 class="text-sm font-medium text-gray-300 mb-2">Path</h3>
+				<p class="text-xs text-gray-500 break-all font-mono">{ data.Model.Path }</p>
+			</div>
+			<!-- Subdirectories -->
+			if len(data.Subdirs) > 0 {
+				<div class="bg-gray-800 rounded-lg p-4">
+					<h3 class="text-sm font-medium text-gray-300 mb-3">Subdirectories</h3>
+					<div class="space-y-1" id="subdirs-list">
+						for _, dir := range data.Subdirs {
+							<div class="flex items-center justify-between text-sm p-1.5 rounded hover:bg-gray-700/50 group">
+								<span class="text-gray-400 font-mono text-xs truncate">{ dir }</span>
+								<button
+									hx-post="/api/settings/ignored-folders/add"
+									hx-vals={ fmt.Sprintf(`{"name":"%s"}`, dir) }
+									hx-target={ fmt.Sprintf("#ignore-status-%s", safeID(dir)) }
+									hx-swap="innerHTML"
+									class="opacity-0 group-hover:opacity-100 text-xs text-gray-500 hover:text-amber-400 transition-all px-2 py-0.5 rounded hover:bg-gray-700"
+									title="Add to ignored folder names"
+								>
+									+ ignore
+								</button>
+								<span id={ fmt.Sprintf("ignore-status-%s", safeID(dir)) } class="text-xs"></span>
+							</div>
+						}
+					</div>
+				</div>
+			}
+			<!-- Actions -->
+			@MergeButton(data.Model.ID)
+			@DeleteDialog(data.Model.ID, data.Model.Name)
+		</div>
+	</div>
+	<script>
+		document.addEventListener('click', function(e) {
+			var containers = ['tag-typeahead-results', 'author-typeahead-results'];
+			for (var i = 0; i < containers.length; i++) {
+				var el = document.getElementById(containers[i]);
+				if (!el) continue;
+				var parent = el.parentElement;
+				if (parent && !parent.contains(e.target)) {
+					el.innerHTML = '';
+				}
+			}
+		});
+	</script>
+}
+
+templ ModelInfo(data ModelDetailData) {
+	<div class="bg-gray-800 rounded-lg p-4">
+		<form
+			hx-put={ fmt.Sprintf("/api/models/%d", data.Model.ID) }
+			hx-target="#model-info"
+			hx-swap="innerHTML"
+		>
+			<div class="mb-4">
+				<label class="block text-sm font-medium text-gray-300 mb-1">Name</label>
+				<input
+					type="text"
+					name="name"
+					value={ data.Model.Name }
+					class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+				/>
+			</div>
+			<div class="mb-4">
+				<label class="block text-sm font-medium text-gray-300 mb-1">Notes</label>
+				<textarea
+					name="notes"
+					rows="3"
+					class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+				>{ data.Model.Notes }</textarea>
+			</div>
+			<button
+				type="submit"
+				class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+			>
+				Save
+			</button>
+		</form>
+		<!-- Author (separate from form, uses own HTMX) -->
+		<div class="mt-4 pt-4 border-t border-gray-700">
+			<label class="block text-sm font-medium text-gray-300 mb-1">Author</label>
+			<div id="author-select">
+				@AuthorSection(&data.Model, data.AllAuthors)
+			</div>
+		</div>
+	</div>
+}
+
+templ AuthorSelect(m *models.Model3D, authors []models.Author) {
+	@AuthorSection(m, authors)
+}
+
+templ AuthorSection(m *models.Model3D, authors []models.Author) {
+	<div class="relative" id="author-typeahead-wrap">
+		if m.Author != nil {
+			<div class="flex items-center gap-2">
+				<span class="flex-1 text-sm text-white">{ m.Author.Name }</span>
+				<button
+					hx-post={ fmt.Sprintf("/api/models/%d/author/set", m.ID) }
+					hx-vals={ `{"name":""}` }
+					hx-target="#author-select"
+					hx-swap="innerHTML"
+					class="text-xs text-gray-500 hover:text-red-400 transition-colors"
+				>&times;</button>
+			</div>
+		} else {
+			<input
+				type="text"
+				placeholder="Search or create author..."
+				autocomplete="off"
+				hx-get={ fmt.Sprintf("/api/models/%d/author/search", m.ID) }
+				hx-trigger="input changed delay:200ms, focus"
+				hx-target="#author-typeahead-results"
+				hx-swap="innerHTML"
+				name="q"
+				class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+			/>
+			<div id="author-typeahead-results" class="absolute z-10 w-full mt-1"></div>
+		}
+	</div>
+}
+
+templ AuthorTypeaheadResults(authors []models.Author, modelID int64, query string) {
+	<div class="bg-gray-700 border border-gray-600 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+		for _, a := range authors {
+			<button
+				hx-post={ fmt.Sprintf("/api/models/%d/author/set", modelID) }
+				hx-vals={ fmt.Sprintf(`{"name":"%s"}`, a.Name) }
+				hx-target="#author-select"
+				hx-swap="innerHTML"
+				class="w-full text-left px-3 py-2 text-sm text-gray-200 hover:bg-gray-600 transition-colors"
+			>
+				{ a.Name }
+			</button>
+		}
+		if query != "" {
+			<button
+				hx-post={ fmt.Sprintf("/api/models/%d/author/set", modelID) }
+				hx-vals={ fmt.Sprintf(`{"name":"%s"}`, query) }
+				hx-target="#author-select"
+				hx-swap="innerHTML"
+				class="w-full text-left px-3 py-2 text-sm text-indigo-400 hover:bg-gray-600 transition-colors border-t border-gray-600"
+			>
+				+ Create "{ query }"
+			</button>
+		}
+	</div>
+}
+
+templ TagSection(currentTags []models.Tag, allTags []models.Tag, modelID int64) {
+	<div class="bg-gray-800 rounded-lg p-4">
+		<h3 class="text-sm font-medium text-gray-300 mb-3">Tags</h3>
+		<div class="flex flex-wrap gap-2 mb-3">
+			for _, t := range currentTags {
+				<span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium text-white" style={ fmt.Sprintf("background-color: %s", t.Color) }>
+					{ t.Name }
+					<button
+						hx-delete={ fmt.Sprintf("/api/models/%d/tags/%d", modelID, t.ID) }
+						hx-target="#tag-section"
+						hx-swap="innerHTML"
+						class="ml-1 hover:text-red-300"
+					>&times;</button>
+				</span>
+			}
+			if len(currentTags) == 0 {
+				<span class="text-sm text-gray-500">No tags assigned</span>
+			}
+		</div>
+		<div class="relative">
+			<input
+				type="text"
+				placeholder="Search or create tag..."
+				autocomplete="off"
+				hx-get={ fmt.Sprintf("/api/models/%d/tags/search", modelID) }
+				hx-trigger="input changed delay:200ms, focus"
+				hx-target="#tag-typeahead-results"
+				hx-swap="innerHTML"
+				name="q"
+				class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-1.5 text-sm text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+			/>
+			<div id="tag-typeahead-results" class="absolute z-10 w-full mt-1"></div>
+		</div>
+	</div>
+}
+
+templ TagTypeaheadResults(tags []models.Tag, modelID int64, query string) {
+	<div class="bg-gray-700 border border-gray-600 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+		for _, t := range tags {
+			<button
+				hx-post={ fmt.Sprintf("/api/models/%d/tags/add", modelID) }
+				hx-vals={ fmt.Sprintf(`{"name":"%s"}`, t.Name) }
+				hx-target="#tag-section"
+				hx-swap="innerHTML"
+				class="w-full text-left px-3 py-2 text-sm text-gray-200 hover:bg-gray-600 transition-colors flex items-center gap-2"
+			>
+				<span class="w-3 h-3 rounded-full flex-shrink-0" style={ fmt.Sprintf("background-color: %s", t.Color) }></span>
+				{ t.Name }
+			</button>
+		}
+		if query != "" {
+			<button
+				hx-post={ fmt.Sprintf("/api/models/%d/tags/add", modelID) }
+				hx-vals={ fmt.Sprintf(`{"name":"%s"}`, query) }
+				hx-target="#tag-section"
+				hx-swap="innerHTML"
+				class="w-full text-left px-3 py-2 text-sm text-indigo-400 hover:bg-gray-600 transition-colors border-t border-gray-600"
+			>
+				+ Create "{ query }"
+			</button>
+		}
+	</div>
+}

@@ -1,0 +1,37 @@
+package templates
+
+import (
+	"fmt"
+	"3dmodels/internal/models"
+)
+
+templ ScannerStatus(status models.ScanStatus) {
+	if status.Running || status.Message != "" {
+		<div
+			class="mt-4 bg-gray-800 border border-gray-700 rounded-lg p-4"
+			if status.Running {
+				hx-get="/api/scan/status"
+				hx-trigger="every 1s"
+				hx-target="this"
+				hx-swap="outerHTML"
+			}
+		>
+			<div class="flex items-center gap-3">
+				if status.Running {
+					<div class="animate-spin rounded-full h-4 w-4 border-2 border-indigo-500 border-t-transparent"></div>
+				} else {
+					<svg class="h-4 w-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+					</svg>
+				}
+				<span class="text-sm text-gray-300">{ status.Message }</span>
+				if status.Running && status.Processed > 0 {
+					<span class="text-xs text-gray-500">({ fmt.Sprintf("%d processed, %d new", status.Processed, status.NewModels) })</span>
+				}
+				if !status.Running && status.Removed > 0 {
+					<span class="text-xs text-gray-500">({ fmt.Sprintf("%d removed", status.Removed) })</span>
+				}
+			</div>
+		</div>
+	}
+}

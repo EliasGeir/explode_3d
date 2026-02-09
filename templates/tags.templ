@@ -1,0 +1,78 @@
+package templates
+
+import (
+	"fmt"
+	"3dmodels/internal/repository"
+)
+
+templ TagsPage(tags []repository.TagWithCount) {
+	<div class="max-w-3xl mx-auto">
+		<h1 class="text-2xl font-bold mb-6">Tags</h1>
+		<!-- Create form -->
+		<div class="bg-gray-800 rounded-lg p-4 mb-6">
+			<h2 class="text-sm font-medium text-gray-300 mb-3">Add Tag</h2>
+			<form
+				hx-post="/api/tags"
+				hx-target="#tag-list"
+				hx-swap="innerHTML"
+				class="flex gap-3 items-center"
+			>
+				<input
+					type="text"
+					name="name"
+					placeholder="Tag name"
+					required
+					class="flex-1 bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+				/>
+				<div class="flex items-center gap-2">
+					<label class="text-sm text-gray-400">Color:</label>
+					<input
+						type="color"
+						name="color"
+						value="#6366f1"
+						class="w-8 h-8 rounded cursor-pointer bg-transparent border-0"
+					/>
+				</div>
+				<button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+					Add
+				</button>
+			</form>
+		</div>
+		<div id="tag-list">
+			@TagList(tags)
+		</div>
+	</div>
+}
+
+templ TagList(tags []repository.TagWithCount) {
+	<div class="space-y-2">
+		for _, t := range tags {
+			<div class="bg-gray-800 rounded-lg p-4 flex items-center justify-between" id={ fmt.Sprintf("tag-%d", t.ID) }>
+				<div class="flex items-center gap-3">
+					<span
+						class="w-4 h-4 rounded-full flex-shrink-0"
+						style={ fmt.Sprintf("background-color: %s", t.Color) }
+					></span>
+					<span class="font-medium text-white">{ t.Name }</span>
+					<span class="text-xs text-gray-400">{ fmt.Sprintf("%d models", t.Count) }</span>
+				</div>
+				<div class="flex items-center gap-2">
+					<button
+						hx-delete={ fmt.Sprintf("/api/tags/%d", t.ID) }
+						hx-target="#tag-list"
+						hx-swap="innerHTML"
+						hx-confirm="Delete this tag?"
+						class="text-red-400 hover:text-red-300 text-sm px-2 py-1"
+					>
+						Delete
+					</button>
+				</div>
+			</div>
+		}
+		if len(tags) == 0 {
+			<div class="text-center py-8 text-gray-400">
+				<p>No tags yet. Add one above.</p>
+			</div>
+		}
+	</div>
+}

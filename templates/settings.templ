@@ -1,0 +1,241 @@
+package templates
+
+import (
+	"fmt"
+	"3dmodels/internal/models"
+)
+
+type SettingsData struct {
+	AutoScanEnabled    bool
+	ScanScheduleHour   int
+	LastScanAt         string
+	ScanStatus         models.ScanStatus
+	IgnoredFolderNames string
+	FolderStructureRules string
+}
+
+templ SettingsPage(data SettingsData) {
+	@Layout("Settings", settingsContent(data))
+}
+
+templ settingsContent(data SettingsData) {
+	<div class="space-y-8">
+		<h1 class="text-2xl font-bold text-white">Settings</h1>
+
+		<!-- Scanner Section -->
+		<div class="bg-gray-800 border border-gray-700 rounded-lg p-6 space-y-6">
+			<h2 class="text-lg font-semibold text-white">Scanner</h2>
+
+			<!-- Status & Force Scan -->
+			<div class="flex items-center justify-between">
+				<div>
+					<p class="text-sm text-gray-400">
+						if data.LastScanAt != "" {
+							Last scan: <span class="text-gray-300">{ data.LastScanAt }</span>
+						} else {
+							No scan performed yet
+						}
+					</p>
+					<p class="text-sm text-gray-400 mt-1">
+						Status:
+						if data.ScanStatus.Running {
+							<span class="text-yellow-400">Running</span>
+						} else {
+							<span class="text-green-400">Idle</span>
+						}
+					</p>
+				</div>
+				<button
+					hx-post="/api/settings/scan"
+					hx-target="#scan-result"
+					hx-swap="innerHTML"
+					class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+					if data.ScanStatus.Running {
+						disabled
+					}
+				>
+					Force Scan Now
+				</button>
+			</div>
+			<div id="scan-result"></div>
+
+			<!-- Auto Scan Toggle -->
+			<div class="border-t border-gray-700 pt-4">
+				<h3 class="text-sm font-medium text-gray-300 mb-3">Scheduled Scan</h3>
+				<div class="space-y-4">
+					<label class="flex items-center gap-3 cursor-pointer">
+						<input
+							type="checkbox"
+							id="auto-scan-toggle"
+							class="w-4 h-4 rounded border-gray-600 bg-gray-700 text-indigo-600 focus:ring-indigo-500"
+							if data.AutoScanEnabled {
+								checked
+							}
+							hx-put="/api/settings"
+							hx-trigger="change"
+							hx-include="#auto-scan-toggle, #scan-hour-select"
+							hx-target="#settings-save-status"
+							hx-swap="innerHTML"
+							name="auto_scan_enabled"
+							value="true"
+						/>
+						<span class="text-sm text-gray-300">Enable automatic daily scan</span>
+					</label>
+
+					<div class="flex items-center gap-3">
+						<label for="scan-hour-select" class="text-sm text-gray-400">Scan at hour:</label>
+						<select
+							id="scan-hour-select"
+							name="scan_schedule_hour"
+							class="bg-gray-700 border border-gray-600 text-gray-200 text-sm rounded-lg px-3 py-1.5 focus:ring-indigo-500 focus:border-indigo-500"
+							hx-put="/api/settings"
+							hx-trigger="change"
+							hx-include="#auto-scan-toggle, #scan-hour-select"
+							hx-target="#settings-save-status"
+							hx-swap="innerHTML"
+						>
+							for i := 0; i < 24; i++ {
+								<option
+									value={ fmt.Sprintf("%d", i) }
+									if i == data.ScanScheduleHour {
+										selected
+									}
+								>
+									{ fmt.Sprintf("%02d:00", i) }
+								</option>
+							}
+						</select>
+					</div>
+				</div>
+			</div>
+
+			<div id="settings-save-status"></div>
+		</div>
+
+		<!-- Ignored Folder Names -->
+		<div class="bg-gray-800 border border-gray-700 rounded-lg p-6 space-y-4">
+			<h2 class="text-lg font-semibold text-white">Ignored Folder Names</h2>
+			<p class="text-sm text-gray-400">
+				Subdirectories with these names will not be treated as separate models. Instead, their parent directory will be considered the model. Comma-separated, case-insensitive. Numeric sizes like 25mm, 32mm are always matched automatically.
+			</p>
+			<div id="ignored-folders-section">
+				@IgnoredFoldersForm(data.IgnoredFolderNames)
+			</div>
+		</div>
+
+		<!-- Folder Structure Rules -->
+		<div class="bg-gray-800 border border-gray-700 rounded-lg p-6 space-y-4">
+			<h2 class="text-lg font-semibold text-white">Folder Structure Rules</h2>
+			<p class="text-sm text-gray-400">
+				Define how the scanner should interpret your folder hierarchy. Specify which folder levels should be treated as categories versus 3D models.
+			</p>
+			<div id="folder-structure-section">
+				@FolderStructureForm(data.FolderStructureRules)
+			</div>
+		</div>
+	</div>
+}
+
+templ IgnoredFoldersForm(value string) {
+	<form
+		hx-put="/api/settings/ignored-folders"
+		hx-target="#ignored-folders-section"
+		hx-swap="innerHTML"
+		class="space-y-3"
+	>
+		<textarea
+			name="ignored_folder_names"
+			rows="3"
+			class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
+		>{ value }</textarea>
+		<div class="flex items-center gap-3">
+			<button
+				type="submit"
+				class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+			>
+				Save
+			</button>
+			<span id="ignored-folders-status" class="text-sm text-green-400"></span>
+		</div>
+	</form>
+}
+
+templ IgnoredFoldersSaved(value string) {
+	@IgnoredFoldersForm(value)
+}
+
+templ IgnoredFolderAdded(name string, alreadyExists bool) {
+	if alreadyExists {
+		<span class="text-sm text-yellow-400">{ "\"" + name + "\" is already in the ignored list" }</span>
+	} else {
+		<span class="text-sm text-green-400">{ "\"" + name + "\" added to ignored folders" }</span>
+	}
+}
+
+templ FolderStructureForm(value string) {
+	<form
+		hx-put="/api/settings/folder-structure"
+		hx-target="#folder-structure-section"
+		hx-swap="innerHTML"
+		class="space-y-3"
+	>
+		<div class="mb-3">
+			<label class="block text-sm font-medium text-gray-300 mb-2">Rule Type:</label>
+			<select
+				name="rule_type"
+				class="bg-gray-700 border border-gray-600 text-gray-200 text-sm rounded-lg px-3 py-1.5 focus:ring-indigo-500 focus:border-indigo-500 w-full"
+			>
+				<option value="depth_based" selected>Depth-Based Rule</option>
+				<option value="pattern_based">Pattern-Based Rule</option>
+			</select>
+		</div>
+		
+		<div class="mb-3">
+			<label class="block text-sm font-medium text-gray-300 mb-2">Max Depth for Categories:</label>
+			<input
+				type="number"
+				name="max_depth"
+				min="0"
+				max="10"
+				value="2"
+				class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+			/>
+			<p class="text-xs text-gray-400 mt-1">Folders at this depth and above will be treated as categories</p>
+		</div>
+		
+		<div class="mb-3">
+			<label class="block text-sm font-medium text-gray-300 mb-2">Category Patterns:</label>
+			<input
+				type="text"
+				name="category_patterns"
+				placeholder="e.g., series, collection, manufacturer"
+				class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+			/>
+			<p class="text-xs text-gray-400 mt-1">Comma-separated patterns for folder names that should be treated as categories</p>
+		</div>
+		
+		<div class="flex items-center gap-3">
+			<button
+				type="submit"
+				class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+			>
+				Save Folder Structure Rules
+			</button>
+			<span id="folder-structure-status" class="text-sm text-green-400"></span>
+		</div>
+	</form>
+}
+
+templ FolderStructureSaved(value string) {
+	@FolderStructureForm(value)
+}
+
+templ SettingsSaved() {
+	<div class="text-sm text-green-400 mt-2" hx-swap-oob="true">
+		Settings saved.
+	</div>
+}
+
+templ ScanStarted(status models.ScanStatus) {
+	@ScannerStatus(status)
+}
