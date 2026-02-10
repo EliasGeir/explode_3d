@@ -54,5 +54,16 @@ func migrate(db *sql.DB) error {
 		}
 	}
 
+	// Conditional migration: add category_id to models if missing
+	err = db.QueryRow(`SELECT COUNT(*) FROM pragma_table_info('models') WHERE name = 'category_id'`).Scan(&count)
+	if err != nil {
+		return fmt.Errorf("check category_id column: %w", err)
+	}
+	if count == 0 {
+		if _, err := db.Exec(`ALTER TABLE models ADD COLUMN category_id INTEGER REFERENCES categories(id) ON DELETE SET NULL`); err != nil {
+			return fmt.Errorf("add category_id column: %w", err)
+		}
+	}
+
 	return nil
 }

@@ -15,11 +15,20 @@ type Tag struct {
 	Color string `json:"color"`
 }
 
+type Category struct {
+	ID       int64  `json:"id"`
+	Name     string `json:"name"`
+	Path     string `json:"path"`
+	ParentID *int64 `json:"parent_id"`
+	Depth    int    `json:"depth"`
+}
+
 type Model3D struct {
 	ID            int64     `json:"id"`
 	Name          string    `json:"name"`
 	Path          string    `json:"path"`
 	AuthorID      *int64    `json:"author_id"`
+	CategoryID    *int64    `json:"category_id"`
 	Notes         string    `json:"notes"`
 	ThumbnailPath string    `json:"thumbnail_path"`
 	CreatedAt     time.Time `json:"created_at"`
@@ -57,9 +66,10 @@ type ScanStatus struct {
 }
 
 type ModelListParams struct {
-	Query    string
-	TagIDs   []int64
-	AuthorID *int64
-	Page     int
-	PageSize int
+	Query      string
+	TagIDs     []int64
+	AuthorID   *int64
+	CategoryID *int64
+	Page       int
+	PageSize   int
 }

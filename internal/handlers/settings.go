@@ -22,59 +22,79 @@ func NewSettingsHandler(settingsRepo *repository.SettingsRepository, sc *scanner
 }
 
 func (h *SettingsHandler) Page(w http.ResponseWriter, r *http.Request) {
+
 	ignoredFolders := scanner.DefaultIgnoredFolders()
+
 	if val, err := h.settingsRepo.Get("ignored_folder_names"); err == nil && val != "" {
+
 		ignoredFolders = val
+
 	}
 
-	folderStructureRules := ""
-	if val, err := h.settingsRepo.Get("folder_structure_rules"); err == nil && val != "" {
-		folderStructureRules = val
-	}
+
+
+	excludedFolders := h.settingsRepo.GetString("excluded_folders", "")
+
+	scannerMinDepth := h.settingsRepo.GetString("scanner_min_depth", "2")
+
+
 
 	data := templates.SettingsData{
+
 		AutoScanEnabled:    h.settingsRepo.GetBool("auto_scan_enabled", true),
+
 		ScanScheduleHour:   h.settingsRepo.GetInt("scan_schedule_hour", 3),
+
 		ScanStatus:         h.scanner.Status(),
+
 		IgnoredFolderNames: ignoredFolders,
-		FolderStructureRules: folderStructureRules,
+
+		ScannerMinDepth:    scannerMinDepth,
+
+		ExcludedFolders:    excludedFolders,
+
 	}
+
+
 
 	lastScan, err := h.settingsRepo.Get("last_scan_at")
+
 	if err == nil {
+
 		data.LastScanAt = lastScan
+
 	}
 
+
+
 	templates.SettingsPage(data).Render(r.Context(), w)
+
 }
 
-func (h *SettingsHandler) SaveFolderStructure(w http.ResponseWriter, r *http.Request) {
+func (h *SettingsHandler) SaveScannerDepth(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "Bad request", http.StatusBadRequest)
+		return
+	}
+	depth := r.FormValue("scanner_min_depth")
+	h.settingsRepo.Set("scanner_min_depth", depth)
+
+	templates.ScannerDepthSaved().Render(r.Context(), w)
+}
+
+func (h *SettingsHandler) SaveExcludedFolders(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "Bad request", http.StatusBadRequest)
 		return
 	}
 
-	ruleType := r.FormValue("rule_type")
-	maxDepth := r.FormValue("max_depth")
-	categoryPatterns := r.FormValue("category_patterns")
+	excludedFolders := strings.TrimSpace(r.FormValue("excluded_folders"))
+	h.settingsRepo.Set("excluded_folders", excludedFolders)
 
-	// Validate inputs
-	if ruleType != "depth_based" && ruleType != "pattern_based" {
-		http.Error(w, "Invalid rule type", http.StatusBadRequest)
-		return
-	}
+	// Refresh the scanner's excluded folders cache
+	h.scanner.RefreshExcludedFolders()
 
-	settingsMap := make(map[string]string)
-	settingsMap["folder_structure_rule_type"] = ruleType
-	settingsMap["folder_structure_max_depth"] = maxDepth
-	settingsMap["folder_structure_category_patterns"] = categoryPatterns
-
-	// Save all settings
-	for key, value := range settingsMap {
-		h.settingsRepo.Set(key, value)
-	}
-
-	templates.FolderStructureSaved("").Render(r.Context(), w)
+	templates.ExcludedFoldersSaved(excludedFolders).Render(r.Context(), w)
 }
 
 func (h *SettingsHandler) ForceScan(w http.ResponseWriter, r *http.Request) {

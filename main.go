@@ -34,20 +34,22 @@ func main() {
 	tagRepo := repository.NewTagRepository(db)
 	authorRepo := repository.NewAuthorRepository(db)
 	settingsRepo := repository.NewSettingsRepository(db)
+	categoryRepo := repository.NewCategoryRepository(db)
 
-	sc := scanner.New(cfg.ScanPath, modelRepo, settingsRepo)
+	sc := scanner.New(cfg.ScanPath, modelRepo, tagRepo, categoryRepo, settingsRepo)
 
 	// Start scheduler
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 	scanner.StartScheduler(ctx, sc, settingsRepo)
 
-	pageHandler := handlers.NewPageHandler(modelRepo, tagRepo, authorRepo, cfg.ScanPath)
+	pageHandler := handlers.NewPageHandler(modelRepo, tagRepo, authorRepo, categoryRepo, cfg.ScanPath)
 	modelHandler := handlers.NewModelHandler(modelRepo, tagRepo, authorRepo, cfg.ScanPath)
 	tagHandler := handlers.NewTagHandler(tagRepo)
 	authorHandler := handlers.NewAuthorHandler(authorRepo)
 	scanHandler := handlers.NewScanHandler(sc)
 	settingsHandler := handlers.NewSettingsHandler(settingsRepo, sc)
+	categoryHandler := handlers.NewCategoryHandler(categoryRepo)
 
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
@@ -70,6 +72,7 @@ func main() {
 	// API - Models
 	r.Get("/api/models", modelHandler.List)
 	r.Put("/api/models/{id}", modelHandler.Update)
+	r.Put("/api/models/{id}/path", modelHandler.UpdatePath)
 	r.Post("/api/models/{id}/tags", modelHandler.AddTag)
 	r.Get("/api/models/{id}/tags/search", modelHandler.SearchTags)
 	r.Post("/api/models/{id}/tags/add", modelHandler.AddTagByName)
@@ -77,6 +80,7 @@ func main() {
 	r.Put("/api/models/{id}/author", modelHandler.SetAuthor)
 	r.Get("/api/models/{id}/author/search", modelHandler.SearchAuthors)
 	r.Post("/api/models/{id}/author/set", modelHandler.SetAuthorByName)
+	r.Delete("/api/models/{id}/images/hide", modelHandler.HideImage)
 	r.Delete("/api/models/{id}", modelHandler.DeleteModel)
 	r.Get("/api/models/{id}/merge-candidates", modelHandler.MergeCandidates)
 	r.Post("/api/models/{id}/merge", modelHandler.Merge)
@@ -98,8 +102,13 @@ func main() {
 	// API - Settings
 	r.Post("/api/settings/scan", settingsHandler.ForceScan)
 	r.Put("/api/settings", settingsHandler.SaveSettings)
+	r.Put("/api/settings/scanner-depth", settingsHandler.SaveScannerDepth)
 	r.Put("/api/settings/ignored-folders", settingsHandler.SaveIgnoredFolders)
 	r.Post("/api/settings/ignored-folders/add", settingsHandler.AddIgnoredFolder)
+	r.Put("/api/settings/excluded-folders", settingsHandler.SaveExcludedFolders)
+
+	// API - Categories
+	r.Get("/api/categories/{id}/children", categoryHandler.GetChildren)
 
 	addr := fmt.Sprintf(":%s", cfg.Port)
 	srv := &http.Server{Addr: addr, Handler: r}

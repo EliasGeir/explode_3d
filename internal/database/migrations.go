@@ -52,6 +52,14 @@ CREATE TABLE IF NOT EXISTS model_group_members (
     PRIMARY KEY (group_id, model_id)
 );
 
+CREATE TABLE IF NOT EXISTS categories (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    path TEXT NOT NULL UNIQUE,
+    parent_id INTEGER REFERENCES categories(id) ON DELETE CASCADE,
+    depth INTEGER NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS settings (
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL,
@@ -63,6 +71,8 @@ CREATE INDEX IF NOT EXISTS idx_models_author ON models(author_id);
 CREATE INDEX IF NOT EXISTS idx_model_files_model ON model_files(model_id);
 CREATE INDEX IF NOT EXISTS idx_model_tags_model ON model_tags(model_id);
 CREATE INDEX IF NOT EXISTS idx_model_tags_tag ON model_tags(tag_id);
+CREATE INDEX IF NOT EXISTS idx_categories_path ON categories(path);
+CREATE INDEX IF NOT EXISTS idx_categories_parent ON categories(parent_id);
 `
 
 const ftsSchema = `

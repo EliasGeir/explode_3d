@@ -1,0 +1,22 @@
+package templates
+
+import (
+	"fmt"
+	"3dmodels/internal/models"
+)
+
+templ CategoryChildrenList(categories []models.Category) {
+	<div class="space-y-2">
+		for _, cat := range categories {
+			<a
+				href={ fmt.Sprintf("/?category_id=%d", cat.ID) }
+				hx-get="/api/models"
+				hx-target="#model-grid"
+				hx-swap="innerHTML"
+				class="block px-3 py-2 rounded-lg text-sm font-medium text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"
+			>
+				{ cat.Name }
+			</a>
+		}
+	</div>
+}

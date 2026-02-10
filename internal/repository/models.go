@@ -3,6 +3,7 @@ package repository
 import (
 	"database/sql"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -17,19 +18,28 @@ func NewModelRepository(db *sql.DB) *ModelRepository {
 	return &ModelRepository{db: db}
 }
 
+func (r *ModelRepository) DB() *sql.DB {
+	return r.db
+}
+
+
 func (r *ModelRepository) GetByID(id int64) (*models.Model3D, error) {
 	m := &models.Model3D{}
 	var authorID sql.NullInt64
+	var categoryID sql.NullInt64
 	err := r.db.QueryRow(`
-		SELECT m.id, m.name, m.path, m.author_id, m.notes, m.thumbnail_path, m.created_at, m.updated_at
+		SELECT m.id, m.name, m.path, m.author_id, m.category_id, COALESCE(m.notes, ''), COALESCE(m.thumbnail_path, ''), m.created_at, m.updated_at
 		FROM models m WHERE m.id = ?`, id).Scan(
-		&m.ID, &m.Name, &m.Path, &authorID, &m.Notes, &m.ThumbnailPath, &m.CreatedAt, &m.UpdatedAt,
+		&m.ID, &m.Name, &m.Path, &authorID, &categoryID, &m.Notes, &m.ThumbnailPath, &m.CreatedAt, &m.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err
 	}
 	if authorID.Valid {
 		m.AuthorID = &authorID.Int64
+	}
+	if categoryID.Valid {
+		m.CategoryID = &categoryID.Int64
 	}
 
 	// Load author
@@ -108,6 +118,20 @@ func (r *ModelRepository) List(params models.ModelListParams) ([]models.Model3D,
 		))
 	}
 
+	if params.CategoryID != nil {
+		// Use recursive CTE to include all subcategories
+		conditions = append(conditions, `m.category_id IN (
+			WITH RECURSIVE category_tree AS (
+				SELECT id FROM categories WHERE id = ?
+				UNION ALL
+				SELECT c.id FROM categories c
+				JOIN category_tree ct ON c.parent_id = ct.id
+			)
+			SELECT id FROM category_tree
+		)`)
+		args = append(args, *params.CategoryID)
+	}
+
 	where := ""
 	if len(conditions) > 0 {
 		where = "WHERE " + strings.Join(conditions, " AND ")
@@ -123,7 +147,7 @@ func (r *ModelRepository) List(params models.ModelListParams) ([]models.Model3D,
 	// Fetch page
 	offset := (params.Page - 1) * params.PageSize
 	query := fmt.Sprintf(`
-		SELECT m.id, m.name, m.path, m.author_id, m.notes, m.thumbnail_path, m.created_at, m.updated_at
+		SELECT m.id, m.name, m.path, m.author_id, m.category_id, COALESCE(m.notes, ''), COALESCE(m.thumbnail_path, ''), m.created_at, m.updated_at
 		FROM models m %s
 		ORDER BY m.name ASC
 		LIMIT ? OFFSET ?`, where)
@@ -139,11 +163,15 @@ func (r *ModelRepository) List(params models.ModelListParams) ([]models.Model3D,
 	for rows.Next() {
 		var m models.Model3D
 		var authorID sql.NullInt64
-		if err := rows.Scan(&m.ID, &m.Name, &m.Path, &authorID, &m.Notes, &m.ThumbnailPath, &m.CreatedAt, &m.UpdatedAt); err != nil {
+		var categoryID sql.NullInt64
+		if err := rows.Scan(&m.ID, &m.Name, &m.Path, &authorID, &categoryID, &m.Notes, &m.ThumbnailPath, &m.CreatedAt, &m.UpdatedAt); err != nil {
 			return nil, 0, err
 		}
 		if authorID.Valid {
 			m.AuthorID = &authorID.Int64
+		}
+		if categoryID.Valid {
+			m.CategoryID = &categoryID.Int64
 		}
 
 		// Load tags for each model
@@ -169,9 +197,9 @@ func (r *ModelRepository) List(params models.ModelListParams) ([]models.Model3D,
 
 func (r *ModelRepository) Create(m *models.Model3D) error {
 	res, err := r.db.Exec(`
-		INSERT INTO models (name, path, author_id, notes, thumbnail_path)
-		VALUES (?, ?, ?, ?, ?)`,
-		m.Name, m.Path, m.AuthorID, m.Notes, m.ThumbnailPath,
+		INSERT INTO models (name, path, author_id, category_id, notes, thumbnail_path)
+		VALUES (?, ?, ?, ?, ?, ?)`,
+		m.Name, m.Path, m.AuthorID, m.CategoryID, m.Notes, m.ThumbnailPath,
 	)
 	if err != nil {
 		return err
@@ -187,8 +215,20 @@ func (r *ModelRepository) Update(id int64, name, notes string) error {
 	return err
 }
 
+func (r *ModelRepository) UpdatePath(id int64, newPath string) error {
+	_, err := r.db.Exec(`
+		UPDATE models SET path = ?, updated_at = CURRENT_TIMESTAMP
+		WHERE id = ?`, newPath, id)
+	return err
+}
+
 func (r *ModelRepository) SetAuthor(modelID int64, authorID *int64) error {
 	_, err := r.db.Exec(`UPDATE models SET author_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`, authorID, modelID)
+	return err
+}
+
+func (r *ModelRepository) SetCategory(modelID int64, categoryID *int64) error {
+	_, err := r.db.Exec(`UPDATE models SET category_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`, categoryID, modelID)
 	return err
 }
 
@@ -206,7 +246,7 @@ func (r *ModelRepository) GetByPath(path string) (*models.Model3D, error) {
 	m := &models.Model3D{}
 	var authorID sql.NullInt64
 	err := r.db.QueryRow(`
-		SELECT id, name, path, author_id, notes, thumbnail_path, created_at, updated_at
+		SELECT id, name, path, author_id, COALESCE(notes, ''), COALESCE(thumbnail_path, ''), created_at, updated_at
 		FROM models WHERE path = ?`, path).Scan(
 		&m.ID, &m.Name, &m.Path, &authorID, &m.Notes, &m.ThumbnailPath, &m.CreatedAt, &m.UpdatedAt,
 	)
@@ -217,6 +257,19 @@ func (r *ModelRepository) GetByPath(path string) (*models.Model3D, error) {
 		m.AuthorID = &authorID.Int64
 	}
 	return m, nil
+}
+
+func (r *ModelRepository) GetFileByPath(path string) (*models.ModelFile, error) {
+	f := &models.ModelFile{}
+	err := r.db.QueryRow(`
+		SELECT id, model_id, file_path, file_name, file_ext, file_size
+		FROM model_files WHERE file_path = ?`, path).Scan(
+		&f.ID, &f.ModelID, &f.FilePath, &f.FileName, &f.FileExt, &f.FileSize,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return f, nil
 }
 
 func (r *ModelRepository) AddFile(f *models.ModelFile) error {
@@ -279,6 +332,14 @@ func (r *ModelRepository) Delete(id int64) error {
 	}
 	defer tx.Rollback()
 
+	if err := r.DeleteTx(tx, id); err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+func (r *ModelRepository) DeleteTx(tx *sql.Tx, id int64) error {
 	for _, q := range []string{
 		"DELETE FROM model_files WHERE model_id = ?",
 		"DELETE FROM model_tags WHERE model_id = ?",
@@ -288,8 +349,9 @@ func (r *ModelRepository) Delete(id int64) error {
 			return err
 		}
 	}
-	return tx.Commit()
+	return nil
 }
+
 
 func (r *ModelRepository) GetFilesByModel(modelID int64) ([]models.ModelFile, error) {
 	rows, err := r.db.Query(`
@@ -333,9 +395,28 @@ func (r *ModelRepository) UpdateFileRecord(fileID int64, filePath, fileName stri
 	return err
 }
 
+func (r *ModelRepository) UpdateFilePathTx(tx *sql.Tx, fileID int64, newRelativePath string) error {
+	_, err := tx.Exec(`UPDATE model_files SET file_path = ?, file_name = ? WHERE id = ?`,
+		newRelativePath, filepath.Base(newRelativePath), fileID)
+	return err
+}
+
+func (r *ModelRepository) MoveFileToNewModelTx(tx *sql.Tx, fileID, targetModelID int64, newRelativePath string) error {
+	_, err := tx.Exec(`UPDATE model_files SET model_id = ?, file_path = ?, file_name = ? WHERE id = ?`,
+		targetModelID, newRelativePath, filepath.Base(newRelativePath), fileID)
+	return err
+}
+
 func (r *ModelRepository) MergeTags(sourceID, targetID int64) error {
 	// Copy tags from source to target (ignore duplicates)
 	_, err := r.db.Exec(`
+		INSERT OR IGNORE INTO model_tags (model_id, tag_id)
+		SELECT ?, tag_id FROM model_tags WHERE model_id = ?`, targetID, sourceID)
+	return err
+}
+
+func (r *ModelRepository) MergeTagsTx(tx *sql.Tx, sourceID, targetID int64) error {
+	_, err := tx.Exec(`
 		INSERT OR IGNORE INTO model_tags (model_id, tag_id)
 		SELECT ?, tag_id FROM model_tags WHERE model_id = ?`, targetID, sourceID)
 	return err
@@ -371,7 +452,7 @@ func (r *ModelRepository) SearchForMerge(excludeID int64, tagIDs []int64, query 
 	}
 
 	q := fmt.Sprintf(`
-		SELECT m.id, m.name, m.path, m.thumbnail_path
+		SELECT m.id, m.name, m.path, COALESCE(m.thumbnail_path, '')
 		FROM models m
 		%s
 		%s
@@ -397,6 +478,18 @@ func (r *ModelRepository) SearchForMerge(excludeID int64, tagIDs []int64, query 
 func (r *ModelRepository) CopyMetadata(sourceID, targetID int64) error {
 	// Copy notes and author from source if target is missing them
 	_, err := r.db.Exec(`
+		UPDATE models SET
+			notes = CASE WHEN notes = '' THEN (SELECT notes FROM models WHERE id = ?) ELSE notes END,
+			author_id = CASE WHEN author_id IS NULL THEN (SELECT author_id FROM models WHERE id = ?) ELSE author_id END,
+			thumbnail_path = CASE WHEN thumbnail_path = '' THEN (SELECT thumbnail_path FROM models WHERE id = ?) ELSE thumbnail_path END,
+			updated_at = CURRENT_TIMESTAMP
+		WHERE id = ?`, sourceID, sourceID, sourceID, targetID)
+	return err
+}
+
+func (r *ModelRepository) CopyMetadataTx(tx *sql.Tx, sourceID, targetID int64) error {
+	// Copy notes and author from source if target is missing them
+	_, err := tx.Exec(`
 		UPDATE models SET
 			notes = CASE WHEN notes = '' THEN (SELECT notes FROM models WHERE id = ?) ELSE notes END,
 			author_id = CASE WHEN author_id IS NULL THEN (SELECT author_id FROM models WHERE id = ?) ELSE author_id END,

@@ -50,3 +50,11 @@ func (r *SettingsRepository) GetInt(key string, defaultVal int) int {
 	}
 	return n
 }
+
+func (r *SettingsRepository) GetString(key string, defaultVal string) string {
+	val, err := r.Get(key)
+	if err != nil {
+		return defaultVal
+	}
+	return val
+}

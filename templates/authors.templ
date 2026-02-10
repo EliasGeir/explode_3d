@@ -47,7 +47,12 @@ templ AuthorList(authors []repository.AuthorWithCount) {
 			<div class="bg-gray-800 rounded-lg p-4 flex items-center justify-between" id={ fmt.Sprintf("author-%d", a.ID) }>
 				<div class="flex-1">
 					<div class="flex items-center gap-3">
-						<span class="font-medium text-white">{ a.Name }</span>
+						<a
+							href={ templ.SafeURL(fmt.Sprintf("/?author_id=%d", a.ID)) }
+							class="font-medium text-white hover:text-indigo-400 transition-colors cursor-pointer"
+						>
+							{ a.Name }
+						</a>
 						<span class="text-xs text-gray-400">{ fmt.Sprintf("%d models", a.Count) }</span>
 					</div>
 					if a.URL != "" {

@@ -11,11 +11,12 @@ type SettingsData struct {
 	LastScanAt         string
 	ScanStatus         models.ScanStatus
 	IgnoredFolderNames string
-	FolderStructureRules string
+	ScannerMinDepth    string
+	ExcludedFolders    string
 }
 
 templ SettingsPage(data SettingsData) {
-	@Layout("Settings", settingsContent(data))
+	@Layout("Settings", nil, nil, settingsContent(data))
 }
 
 templ settingsContent(data SettingsData) {
@@ -123,14 +124,52 @@ templ settingsContent(data SettingsData) {
 			</div>
 		</div>
 
-		<!-- Folder Structure Rules -->
+		<!-- Scanner Depth -->
 		<div class="bg-gray-800 border border-gray-700 rounded-lg p-6 space-y-4">
-			<h2 class="text-lg font-semibold text-white">Folder Structure Rules</h2>
+			<h2 class="text-lg font-semibold text-white">Scanner Minimum Depth</h2>
 			<p class="text-sm text-gray-400">
-				Define how the scanner should interpret your folder hierarchy. Specify which folder levels should be treated as categories versus 3D models.
+				To prevent top-level folders from being misidentified as models, set a minimum depth for scanning. The scanner will only start identifying models at this folder depth or deeper.
+				<br/>
+				(Depth 0 is the root scan folder).
 			</p>
-			<div id="folder-structure-section">
-				@FolderStructureForm(data.FolderStructureRules)
+			<form
+				hx-put="/api/settings/scanner-depth"
+				hx-target="#scanner-depth-status"
+				hx-swap="innerHTML"
+				class="space-y-3"
+			>
+				<div class="mb-3">
+					<label class="block text-sm font-medium text-gray-300 mb-2">Minimum Depth:</label>
+					<input
+						type="number"
+						name="scanner_min_depth"
+						min="0"
+						max="10"
+						value={ data.ScannerMinDepth }
+						class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+					/>
+					<p class="text-xs text-gray-400 mt-1">e.g., a value of `2` means scanning starts at the 3rd level of folders.</p>
+				</div>
+				<div class="flex items-center gap-3">
+					<button
+						type="submit"
+						class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+					>
+						Save
+					</button>
+					<span id="scanner-depth-status" class="text-sm text-green-400"></span>
+				</div>
+			</form>
+		</div>
+
+		<!-- Excluded Folders -->
+		<div class="bg-gray-800 border border-gray-700 rounded-lg p-6 space-y-4">
+			<h2 class="text-lg font-semibold text-white">Excluded Folders</h2>
+			<p class="text-sm text-gray-400">
+				Folders to exclude from scanning. Enter folder names (case-insensitive) to skip during scanning. Comma-separated.
+			</p>
+			<div id="excluded-folders-section">
+				@ExcludedFoldersForm(data.ExcludedFolders)
 			</div>
 		</div>
 	</div>
@@ -172,62 +211,39 @@ templ IgnoredFolderAdded(name string, alreadyExists bool) {
 	}
 }
 
-templ FolderStructureForm(value string) {
+templ ExcludedFoldersForm(value string) {
 	<form
-		hx-put="/api/settings/folder-structure"
-		hx-target="#folder-structure-section"
+		hx-put="/api/settings/excluded-folders"
+		hx-target="#excluded-folders-section"
 		hx-swap="innerHTML"
 		class="space-y-3"
 	>
-		<div class="mb-3">
-			<label class="block text-sm font-medium text-gray-300 mb-2">Rule Type:</label>
-			<select
-				name="rule_type"
-				class="bg-gray-700 border border-gray-600 text-gray-200 text-sm rounded-lg px-3 py-1.5 focus:ring-indigo-500 focus:border-indigo-500 w-full"
-			>
-				<option value="depth_based" selected>Depth-Based Rule</option>
-				<option value="pattern_based">Pattern-Based Rule</option>
-			</select>
-		</div>
-		
-		<div class="mb-3">
-			<label class="block text-sm font-medium text-gray-300 mb-2">Max Depth for Categories:</label>
-			<input
-				type="number"
-				name="max_depth"
-				min="0"
-				max="10"
-				value="2"
-				class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-			/>
-			<p class="text-xs text-gray-400 mt-1">Folders at this depth and above will be treated as categories</p>
-		</div>
-		
-		<div class="mb-3">
-			<label class="block text-sm font-medium text-gray-300 mb-2">Category Patterns:</label>
-			<input
-				type="text"
-				name="category_patterns"
-				placeholder="e.g., series, collection, manufacturer"
-				class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-			/>
-			<p class="text-xs text-gray-400 mt-1">Comma-separated patterns for folder names that should be treated as categories</p>
-		</div>
-		
+		<input
+			type="text"
+			name="excluded_folders"
+			value={ value }
+			placeholder="e.g., backups, archives, temp"
+			class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+		/>
+		<p class="text-xs text-gray-400 mt-1">Comma-separated folder names to exclude from scanning (case-insensitive)</p>
 		<div class="flex items-center gap-3">
 			<button
 				type="submit"
 				class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
 			>
-				Save Folder Structure Rules
+				Save Excluded Folders
 			</button>
-			<span id="folder-structure-status" class="text-sm text-green-400"></span>
+			<span id="excluded-folders-status" class="text-sm text-green-400"></span>
 		</div>
 	</form>
 }
 
-templ FolderStructureSaved(value string) {
-	@FolderStructureForm(value)
+templ ExcludedFoldersSaved(value string) {
+	@ExcludedFoldersForm(value)
+}
+
+templ ScannerDepthSaved() {
+	<span class="text-sm text-green-400">Saved.</span>
 }
 
 templ SettingsSaved() {

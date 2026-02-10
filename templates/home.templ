@@ -2,104 +2,67 @@ package templates
 
 import (
 	"fmt"
+	"net/url"
 	"3dmodels/internal/models"
 	"3dmodels/internal/repository"
 )
 
 type HomeData struct {
-	Models   []models.Model3D
-	Tags     []repository.TagWithCount
-	Authors  []repository.AuthorWithCount
-	Total    int
-	Page     int
-	PageSize int
-	Query    string
+	Models     []models.Model3D
+	Tags       []repository.TagWithCount
+	Authors    []repository.AuthorWithCount
+	Categories []models.Category
+	Total      int
+	Page       int
+	PageSize   int
+	Query      string
+	TotalPages int
+	CategoryID *int64 // Current selected category
 }
 
-templ HomePage(data HomeData) {
-	<div class="flex gap-6">
-		<!-- Sidebar filters -->
-		<aside class="w-64 flex-shrink-0">
-			<div class="bg-gray-800 rounded-lg p-4 sticky top-4">
-				<!-- Search -->
-				<div class="mb-6">
-					<label class="block text-sm font-medium text-gray-300 mb-2">Search</label>
-					<input
-						type="text"
-						name="q"
-						value={ data.Query }
-						placeholder="Search models..."
-						hx-get="/api/models"
-						hx-trigger="keyup changed delay:300ms"
-						hx-target="#model-grid"
-						hx-swap="innerHTML"
-						hx-include="[name='author_id'], [name='tags']"
-						class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-					/>
-				</div>
-				<!-- Author filter -->
-				<div class="mb-6">
-					<label class="block text-sm font-medium text-gray-300 mb-2">Author</label>
-					<select
-						name="author_id"
-						hx-get="/api/models"
-						hx-trigger="change"
-						hx-target="#model-grid"
-						hx-swap="innerHTML"
-						hx-include="[name='q'], [name='tags']"
-						class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-					>
-						<option value="">All Authors</option>
-						for _, a := range data.Authors {
-							<option value={ fmt.Sprintf("%d", a.ID) }>{ a.Name } ({ fmt.Sprintf("%d", a.Count) })</option>
-						}
-					</select>
-				</div>
-				<!-- Tag filter -->
-				<div>
-					<label class="block text-sm font-medium text-gray-300 mb-2">Tags</label>
-					<div class="space-y-2 max-h-64 overflow-y-auto">
-						for _, t := range data.Tags {
-							<label class="flex items-center space-x-2 cursor-pointer">
-								<input
-									type="checkbox"
-									name="tags"
-									value={ fmt.Sprintf("%d", t.ID) }
-									hx-get="/api/models"
-									hx-trigger="change"
-									hx-target="#model-grid"
-									hx-swap="innerHTML"
-									hx-include="[name='q'], [name='author_id'], [name='tags']"
-									class="rounded border-gray-600 bg-gray-700 text-indigo-600 focus:ring-indigo-500"
-								/>
-								<span
-									class="inline-block w-3 h-3 rounded-full"
-									style={ fmt.Sprintf("background-color: %s", t.Color) }
-								></span>
-								<span class="text-sm text-gray-300">{ t.Name } ({ fmt.Sprintf("%d", t.Count) })</span>
-							</label>
-						}
-					</div>
-				</div>
-			</div>
-		</aside>
-		<!-- Main content -->
-		<div class="flex-1">
-			<div class="flex items-center justify-between mb-6">
-				<h1 class="text-2xl font-bold">Models</h1>
-				<span class="text-sm text-gray-400">{ fmt.Sprintf("%d", data.Total) } models</span>
-			</div>
-			<div id="model-grid">
-				@ModelGrid(data)
-			</div>
+templ HomePageContent(data HomeData) {
+	<div class="flex-1">
+		<div class="flex items-center justify-between mb-6">
+			<h1 class="text-2xl font-bold">Models</h1>
+			<span class="text-sm text-gray-400">{ fmt.Sprintf("%d", data.Total) } models</span>
 		</div>
+		<div id="model-grid">
+			@ModelGrid(data)
+		</div>
+	</div>
+}
+
+templ TopCategories(categories []models.Category) {
+	<div class="flex flex-wrap gap-2 py-4 border-b border-gray-700 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 mb-8">
+		<a
+			href="/"
+			hx-get="/api/models"
+			hx-target="#model-grid"
+			hx-swap="innerHTML"
+			hx-push-url="/"
+			class="px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 transition-colors"
+		>
+			All Models
+		</a>
+		for _, cat := range categories {
+			<a
+				href={ templ.SafeURL(fmt.Sprintf("/?category_id=%d", cat.ID)) }
+				hx-get={ fmt.Sprintf("/api/models?category_id=%d", cat.ID) }
+				hx-target="#model-grid"
+				hx-swap="innerHTML"
+				hx-push-url={ fmt.Sprintf("/?category_id=%d", cat.ID) }
+				class="px-4 py-2 rounded-lg text-sm font-medium bg-gray-700 text-gray-200 hover:bg-gray-600 hover:text-white transition-colors"
+			>
+				{ cat.Name }
+			</a>
+		}
 	</div>
 }
 
 templ ModelGrid(data HomeData) {
 	<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
 		for _, m := range data.Models {
-			@ModelCard(m)
+			@ModelCard(m, data.Page, data.Query, data.CategoryID)
 		}
 	</div>
 	if len(data.Models) == 0 {
@@ -108,22 +71,130 @@ templ ModelGrid(data HomeData) {
 			<p class="text-sm mt-2">Try scanning your models directory or adjusting filters</p>
 		</div>
 	}
-	if data.Total > data.Page * data.PageSize {
-		<div class="mt-6 text-center">
-			<button
-				hx-get={ fmt.Sprintf("/api/models?page=%d&q=%s", data.Page+1, data.Query) }
-				hx-target="#model-grid"
-				hx-swap="innerHTML"
-				class="bg-gray-700 hover:bg-gray-600 text-white px-6 py-2 rounded-lg text-sm font-medium transition-colors"
-			>
-				Load More
-			</button>
+	
+	<!-- Pagination Controls -->
+	if data.TotalPages > 1 {
+		<div class="mt-8 flex flex-col items-center">
+			<div class="flex items-center space-x-1">
+				<!-- Previous Button -->
+				if data.Page > 1 {
+					<a
+						href={ fmt.Sprintf("?page=%d&q=%s", data.Page-1, data.Query) }
+						class="px-3 py-1.5 rounded-md bg-gray-700 text-white hover:bg-gray-600 text-sm font-medium"
+					>
+						Previous
+					</a>
+				} else {
+					<span class="px-3 py-1.5 rounded-md bg-gray-800 text-gray-500 text-sm font-medium cursor-not-allowed">
+						Previous
+					</span>
+				}
+				
+				<!-- Page Numbers -->
+				<!-- Show first page -->
+				if data.Page > 3 {
+					<a
+						href={ fmt.Sprintf("?page=1&q=%s", data.Query) }
+						class="px-3 py-1.5 rounded-md bg-gray-700 text-white hover:bg-gray-600 text-sm font-medium"
+					>
+						1
+					</a>
+					if data.Page > 4 {
+						<span class="px-2 text-gray-500 text-sm">...</span>
+					}
+				}
+				
+				<!-- Pages around current page -->
+				for i := max(1, data.Page-2); i <= min(data.TotalPages, data.Page+2); i++ {
+					if i == data.Page {
+						<span class="px-3 py-1.5 rounded-md bg-indigo-600 text-white text-sm font-medium">
+							{ fmt.Sprintf("%d", i) }
+						</span>
+					} else {
+						<a
+							href={ fmt.Sprintf("?page=%d&q=%s", i, data.Query) }
+							class="px-3 py-1.5 rounded-md bg-gray-700 text-white hover:bg-gray-600 text-sm font-medium"
+						>
+							{ fmt.Sprintf("%d", i) }
+						</a>
+					}
+				}
+				
+				<!-- Show last page -->
+				if data.Page < data.TotalPages - 2 {
+					if data.Page < data.TotalPages - 3 {
+						<span class="px-2 text-gray-500 text-sm">...</span>
+					}
+					<a
+						href={ fmt.Sprintf("?page=%d&q=%s", data.TotalPages, data.Query) }
+						class="px-3 py-1.5 rounded-md bg-gray-700 text-white hover:bg-gray-600 text-sm font-medium"
+					>
+						{ fmt.Sprintf("%d", data.TotalPages) }
+					</a>
+				}
+				
+				<!-- Next Button -->
+				if data.Page < data.TotalPages {
+					<a
+						href={ fmt.Sprintf("?page=%d&q=%s", data.Page+1, data.Query) }
+						class="px-3 py-1.5 rounded-md bg-gray-700 text-white hover:bg-gray-600 text-sm font-medium"
+					>
+						Next
+					</a>
+				} else {
+					<span class="px-3 py-1.5 rounded-md bg-gray-800 text-gray-500 text-sm font-medium cursor-not-allowed">
+						Next
+					</span>
+				}
+			</div>
+			
+			<!-- Page Info -->
+			<div class="mt-3 text-sm text-gray-400">
+				Page { fmt.Sprintf("%d", data.Page) } of { fmt.Sprintf("%d", data.TotalPages) } • 
+				Showing { fmt.Sprintf("%d", min(data.PageSize, data.Total-(data.Page-1)*data.PageSize)) } of { fmt.Sprintf("%d", data.Total) } models
+			</div>
 		</div>
 	}
 }
 
-templ ModelCard(m models.Model3D) {
-	<a href={ templ.SafeURL(fmt.Sprintf("/models/%d", m.ID)) } class="block bg-gray-800 rounded-lg overflow-hidden hover:ring-2 hover:ring-indigo-500 transition-all group">
+// Helper functions for min/max
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+func buildModelURL(modelID int64, page int, query string, categoryID *int64) string {
+	baseURL := fmt.Sprintf("/models/%d", modelID)
+	params := url.Values{}
+
+	if categoryID != nil {
+		params.Add("category_id", fmt.Sprintf("%d", *categoryID))
+	}
+	if page > 1 {
+		params.Add("page", fmt.Sprintf("%d", page))
+	}
+	if query != "" {
+		params.Add("q", query)
+	}
+
+	if len(params) > 0 {
+		return baseURL + "?" + params.Encode()
+	}
+
+	return baseURL
+}
+
+templ ModelCard(m models.Model3D, page int, query string, categoryID *int64) {
+	<a href={ templ.SafeURL(buildModelURL(m.ID, page, query, categoryID)) } class="block bg-gray-800 rounded-lg overflow-hidden hover:ring-2 hover:ring-indigo-500 transition-all group">
 		<div class="aspect-square bg-gray-700 flex items-center justify-center overflow-hidden">
 			if m.ThumbnailPath != "" {
 				<img

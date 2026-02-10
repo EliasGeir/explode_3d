@@ -49,11 +49,16 @@ templ TagList(tags []repository.TagWithCount) {
 		for _, t := range tags {
 			<div class="bg-gray-800 rounded-lg p-4 flex items-center justify-between" id={ fmt.Sprintf("tag-%d", t.ID) }>
 				<div class="flex items-center gap-3">
-					<span
-						class="w-4 h-4 rounded-full flex-shrink-0"
-						style={ fmt.Sprintf("background-color: %s", t.Color) }
-					></span>
-					<span class="font-medium text-white">{ t.Name }</span>
+					<a
+						href={ templ.SafeURL(fmt.Sprintf("/?tags=%d", t.ID)) }
+						class="flex items-center gap-2 hover:opacity-80 transition-opacity cursor-pointer"
+					>
+						<span
+							class="w-4 h-4 rounded-full flex-shrink-0"
+							style={ fmt.Sprintf("background-color: %s", t.Color) }
+						></span>
+						<span class="font-medium text-white">{ t.Name }</span>
+					</a>
 					<span class="text-xs text-gray-400">{ fmt.Sprintf("%d models", t.Count) }</span>
 				</div>
 				<div class="flex items-center gap-2">

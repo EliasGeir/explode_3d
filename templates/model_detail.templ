@@ -4,9 +4,31 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"sort"
 	"strings"
 	"3dmodels/internal/models"
 )
+
+func sortedGroupKeys(m map[string][]models.ModelFile) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+func getSubdirKeys(m map[string][]models.ModelFile) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		// Don't list the root dir placeholder as a "subdirectory"
+		if !strings.HasSuffix(k, " (root)") {
+			keys = append(keys, k)
+		}
+	}
+	sort.Strings(keys)
+	return keys
+}
 
 // fileURL encodes a relative file path for use in /files/ URLs.
 func fileURL(path string) string {
@@ -18,11 +40,12 @@ func fileURL(path string) string {
 }
 
 type ModelDetailData struct {
-	Model      models.Model3D
-	AllTags    []models.Tag
-	AllAuthors []models.Author
-	Images     []string
-	Subdirs    []string
+	Model        models.Model3D
+	AllTags      []models.Tag
+	AllAuthors   []models.Author
+	Images       []string
+	GroupedFiles map[string][]models.ModelFile
+	BackURL      string // URL to return to when clicking "Back to models"
 }
 
 type viewableFile struct {
@@ -129,7 +152,7 @@ func imagesJSON(images []string) string {
 
 templ ModelDetailPage(data ModelDetailData) {
 	<div class="mb-4">
-		<a href="/" class="text-indigo-400 hover:text-indigo-300 text-sm">&larr; Back to models</a>
+		<a href={ templ.SafeURL(data.BackURL) } class="text-indigo-400 hover:text-indigo-300 text-sm">&larr; Back to models</a>
 	</div>
 	<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 		<!-- Left column: viewer + images -->
@@ -185,8 +208,6 @@ templ ModelDetailPage(data ModelDetailData) {
 						</div>
 					}
 				</div>
-				<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-				<script src="/static/js/viewer3d.js"></script>
 			} else {
 				<div class="bg-gray-800 rounded-lg overflow-hidden">
 					<div class="w-full aspect-[4/3] flex items-center justify-center bg-gray-700">
@@ -196,25 +217,8 @@ templ ModelDetailPage(data ModelDetailData) {
 			}
 			<!-- Image gallery -->
 			if len(data.Images) > 0 {
-				<div class="bg-gray-800 rounded-lg p-4">
-					<h3 class="text-sm font-medium text-gray-300 mb-3">
-						{ fmt.Sprintf("Images (%d)", len(data.Images)) }
-					</h3>
-					<div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2" id="image-gallery">
-						for i, img := range data.Images {
-							<div
-								class="aspect-square rounded-lg overflow-hidden bg-gray-700 cursor-pointer hover:ring-2 hover:ring-indigo-500 transition-all"
-								data-gallery-index={ fmt.Sprintf("%d", i) }
-							>
-								<img
-									src={ fileURL(img) }
-									alt="Render"
-									class="gallery-img w-full h-full object-cover"
-									loading="lazy"
-								/>
-							</div>
-						}
-					</div>
+				<div class="bg-gray-800 rounded-lg p-4" id="image-gallery-section">
+					@ImageGallery(data.Model.ID, data.Images)
 				</div>
 				<!-- Lightbox -->
 				<div
@@ -318,43 +322,72 @@ templ ModelDetailPage(data ModelDetailData) {
 					<h3 class="text-sm font-medium text-gray-300 mb-3">
 						{ fmt.Sprintf("Files (%d)", len(vFiles)) }
 					</h3>
-					<div class="space-y-1 max-h-64 overflow-y-auto" id="file-list">
-						for _, f := range vFiles {
-							if isViewableExt(f.FileExt) {
-								<div
-									data-file-index={ fmt.Sprintf("%d", viewerIndexOf(f, data.Model.Files)) }
-									class="file-list-item flex items-center justify-between text-sm p-1.5 rounded cursor-pointer hover:bg-gray-700 transition-colors"
-								>
-									<div class="flex items-center space-x-2 min-w-0">
-										<span class="px-2 py-0.5 bg-indigo-600/30 text-indigo-300 rounded text-xs uppercase flex-shrink-0">{ f.FileExt }</span>
-										<span class="text-gray-300 truncate">{ f.FileName }</span>
-									</div>
-									<span class="text-gray-500 text-xs flex-shrink-0 ml-2">{ formatSize(f.FileSize) }</span>
+					<div class="space-y-4 max-h-96 overflow-y-auto" id="file-list">
+						for _, groupName := range sortedGroupKeys(data.GroupedFiles) {
+							<div class="py-1">
+								<h4 class="text-xs font-bold uppercase text-gray-400 tracking-wider px-1.5 pb-1.5 pt-2 border-b border-gray-700">{ groupName }</h4>
+								<div class="pt-1 space-y-1">
+									for _, f := range data.GroupedFiles[groupName] {
+										if isViewableExt(f.FileExt) {
+											<div
+												data-file-index={ fmt.Sprintf("%d", viewerIndexOf(f, data.Model.Files)) }
+												class="file-list-item flex items-center justify-between text-sm p-1.5 rounded cursor-pointer hover:bg-gray-700 transition-colors"
+											>
+												<div class="flex items-center space-x-2 min-w-0">
+													<span class="px-2 py-0.5 bg-indigo-600/30 text-indigo-300 rounded text-xs uppercase flex-shrink-0">{ f.FileExt }</span>
+													<span class="text-gray-300 truncate">{ f.FileName }</span>
+												</div>
+												<div class="flex items-center gap-2 flex-shrink-0 ml-2">
+													<span class="text-gray-500 text-xs">{ formatSize(f.FileSize) }</span>
+													<a
+														href={ templ.SafeURL(fileURL(f.FilePath)) }
+														download={ f.FileName }
+														onclick="event.stopPropagation()"
+														class="text-gray-500 hover:text-indigo-400 transition-colors"
+														title="Download"
+													>
+														<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+															<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+														</svg>
+													</a>
+												</div>
+											</div>
+										} else {
+											<div class="flex items-center justify-between text-sm p-1.5">
+												<div class="flex items-center space-x-2 min-w-0">
+													<span class="px-2 py-0.5 bg-gray-700 rounded text-xs text-gray-300 uppercase flex-shrink-0">{ f.FileExt }</span>
+													<span class="text-gray-300 truncate">{ f.FileName }</span>
+												</div>
+												<div class="flex items-center gap-2 flex-shrink-0 ml-2">
+													<span class="text-gray-500 text-xs">{ formatSize(f.FileSize) }</span>
+													<a
+														href={ templ.SafeURL(fileURL(f.FilePath)) }
+														download={ f.FileName }
+														class="text-gray-500 hover:text-indigo-400 transition-colors"
+														title="Download"
+													>
+														<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+															<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+														</svg>
+													</a>
+												</div>
+											</div>
+										}
+									}
 								</div>
-							} else {
-								<div class="flex items-center justify-between text-sm p-1.5">
-									<div class="flex items-center space-x-2 min-w-0">
-										<span class="px-2 py-0.5 bg-gray-700 rounded text-xs text-gray-300 uppercase flex-shrink-0">{ f.FileExt }</span>
-										<span class="text-gray-300 truncate">{ f.FileName }</span>
-									</div>
-									<span class="text-gray-500 text-xs flex-shrink-0 ml-2">{ formatSize(f.FileSize) }</span>
-								</div>
-							}
+							</div>
 						}
 					</div>
 				</div>
 			}
 			<!-- Path info -->
-			<div class="bg-gray-800 rounded-lg p-4">
-				<h3 class="text-sm font-medium text-gray-300 mb-2">Path</h3>
-				<p class="text-xs text-gray-500 break-all font-mono">{ data.Model.Path }</p>
-			</div>
+			@PathSection(data.Model.ID, data.Model.Path)
 			<!-- Subdirectories -->
-			if len(data.Subdirs) > 0 {
+			if subdirs := getSubdirKeys(data.GroupedFiles); len(subdirs) > 0 {
 				<div class="bg-gray-800 rounded-lg p-4">
 					<h3 class="text-sm font-medium text-gray-300 mb-3">Subdirectories</h3>
 					<div class="space-y-1" id="subdirs-list">
-						for _, dir := range data.Subdirs {
+						for _, dir := range subdirs {
 							<div class="flex items-center justify-between text-sm p-1.5 rounded hover:bg-gray-700/50 group">
 								<span class="text-gray-400 font-mono text-xs truncate">{ dir }</span>
 								<button
@@ -378,6 +411,10 @@ templ ModelDetailPage(data ModelDetailData) {
 			@DeleteDialog(data.Model.ID, data.Model.Name)
 		</div>
 	</div>
+	if vf := getViewableFiles(data.Model.Files); len(vf) > 0 {
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+		<script src="/static/js/viewer3d.js"></script>
+	}
 	<script>
 		document.addEventListener('click', function(e) {
 			var containers = ['tag-typeahead-results', 'author-typeahead-results'];
@@ -557,4 +594,67 @@ templ TagTypeaheadResults(tags []models.Tag, modelID int64, query string) {
 			</button>
 		}
 	</div>
+}
+
+templ PathSection(modelID int64, path string) {
+	<div class="bg-gray-800 rounded-lg p-4" id="path-section">
+		<h3 class="text-sm font-medium text-gray-300 mb-2">Path</h3>
+		<form
+			hx-put={ fmt.Sprintf("/api/models/%d/path", modelID) }
+			hx-target="#path-section"
+			hx-swap="outerHTML"
+			hx-confirm="Are you sure? Changing the path may merge this model with an existing one if the path already exists."
+		>
+			<div class="mb-2">
+				<input
+					type="text"
+					name="path"
+					value={ path }
+					class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-xs text-white font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
+				/>
+			</div>
+			<button
+				type="submit"
+				class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+			>
+				Update Path
+			</button>
+		</form>
+	</div>
+}
+
+templ ImageGallery(modelID int64, images []string) {
+	<h3 class="text-sm font-medium text-gray-300 mb-3">
+		{ fmt.Sprintf("Images (%d)", len(images)) }
+	</h3>
+	<div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2" id="image-gallery">
+		for i, img := range images {
+			<div
+				class="relative aspect-square rounded-lg overflow-hidden bg-gray-700 group"
+				data-gallery-index={ fmt.Sprintf("%d", i) }
+				id={ fmt.Sprintf("image-%d", i) }
+			>
+				<img
+					src={ fileURL(img) }
+					alt="Render"
+					class="gallery-img w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform"
+					loading="lazy"
+				/>
+				<button
+					hx-delete={ fmt.Sprintf("/api/models/%d/images/hide", modelID) }
+					hx-vals={ fmt.Sprintf(`{"image_path":"%s"}`, img) }
+					hx-target="#image-gallery-section"
+					hx-swap="innerHTML"
+					hx-confirm="Hide this image? (You can unhide it by removing the dot from the filename)"
+					class="absolute top-1 right-1 w-6 h-6 bg-red-600/90 hover:bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-sm font-bold"
+					onclick="event.stopPropagation()"
+				>
+					×
+				</button>
+			</div>
+		}
+	</div>
+	if len(images) == 0 {
+		<p class="text-sm text-gray-400 text-center py-8">No images found</p>
+	}
 }
