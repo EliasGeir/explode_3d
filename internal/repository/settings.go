@@ -15,7 +15,7 @@ func NewSettingsRepository(db *sql.DB) *SettingsRepository {
 
 func (r *SettingsRepository) Get(key string) (string, error) {
 	var value string
-	err := r.db.QueryRow(`SELECT value FROM settings WHERE key = ?`, key).Scan(&value)
+	err := r.db.QueryRow(`SELECT value FROM settings WHERE key = $1`, key).Scan(&value)
 	if err != nil {
 		return "", err
 	}
@@ -24,8 +24,8 @@ func (r *SettingsRepository) Get(key string) (string, error) {
 
 func (r *SettingsRepository) Set(key, value string) error {
 	_, err := r.db.Exec(`
-		INSERT INTO settings (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)
-		ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP`,
+		INSERT INTO settings (key, value, updated_at) VALUES ($1, $2, NOW())
+		ON CONFLICT(key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
 		key, value,
 	)
 	return err

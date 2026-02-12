@@ -5,17 +5,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Build Commands
 
 ```bash
-make build        # templ generate + CGO_ENABLED=1 go build -tags fts5
+make build        # templ generate + go build
 make run          # build + run binary
 make generate     # templ generate ./... only
 make clean        # remove binary and generated *_templ.go files
 ```
 
-**Critical:** FTS5 requires the build tag `fts5` and `CGO_ENABLED=1`. The go-sqlite3 driver uses `//go:build sqlite_fts5 || fts5` to conditionally enable it. Do NOT use `CGO_CFLAGS`.
+No CGO required — the app uses the pure-Go `pgx` driver for PostgreSQL.
 
 ## Architecture
 
-Go web app: **chi router + SQLite (mattn/go-sqlite3 with FTS5) + templ + HTMX + Tailwind CDN + Three.js**
+Go web app: **chi router + PostgreSQL (pgx) + templ + HTMX + Tailwind CDN + Three.js**
 
 Module name: `3dmodels`
 
@@ -24,7 +24,7 @@ Module name: `3dmodels`
 ```
 .env → config.Load()
          ↓
-     database.Open()  →  auto-migrations + FTS5 setup
+     database.Open()  →  auto-migrations + tsvector/GIN setup
          ↓
      repositories (models, tags, authors, settings)
          ↓
@@ -39,6 +39,7 @@ Module name: `3dmodels`
 - **Templ generates** `*_templ.go` files alongside `.templ` sources. Always run `templ generate ./...` (or `make generate`) after editing `.templ` files.
 - **HTMX pattern:** Handlers return HTML fragments rendered via templ. Most API endpoints return partial HTML for `hx-target` swap, not JSON.
 - **JS fetch to Go handlers:** Use `URLSearchParams` (not `FormData`) when sending POST/DELETE via `fetch()`. Go's `r.ParseForm()` only reads `application/x-www-form-urlencoded` bodies; if `ParseForm` runs before `FormValue`, multipart bodies from `FormData` won't be parsed.
+- **SQL placeholders:** PostgreSQL uses positional placeholders (`$1, $2, $3...`), not `?`.
 
 ### Scanner
 
@@ -53,7 +54,7 @@ Ignored folder names are stored in the `settings` table (`ignored_folder_names` 
 
 ### Database
 
-SQLite with auto-migrations on startup (`internal/database/migrations.go`). Tables: `models`, `model_files`, `tags`, `model_tags`, `authors`, `settings`, `model_groups`. FTS5 virtual table `models_fts` with insert/update/delete triggers on `models.name`.
+PostgreSQL with auto-migrations on startup (`internal/database/migrations.go`). Tables: `models`, `model_files`, `tags`, `model_tags`, `authors`, `settings`, `model_groups`, `categories`. Full-text search uses a `search_vector TSVECTOR` column on `models` with a GIN index and a `BEFORE INSERT OR UPDATE` trigger that populates it via `to_tsvector('simple', name)`.
 
 ### Frontend
 
@@ -64,4 +65,12 @@ SQLite with auto-migrations on startup (`internal/database/migrations.go`). Tabl
 
 ## Configuration
 
-`.env` file with: `SCAN_PATH` (root folder to scan), `PORT` (default 8080), `DB_PATH` (default `./data/models.db`).
+`.env` file with:
+- `SCAN_PATH` — root folder to scan
+- `PORT` — HTTP port (default 8080)
+- `DB_HOST` — PostgreSQL host (default localhost)
+- `DB_PORT` — PostgreSQL port (default 5432)
+- `DB_USER` — PostgreSQL user (default postgres)
+- `DB_PASSWORD` — PostgreSQL password
+- `DB_NAME` — database name (default models3d)
+- `DB_SSLMODE` — SSL mode (default disable)

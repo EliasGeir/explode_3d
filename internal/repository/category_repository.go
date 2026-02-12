@@ -2,6 +2,7 @@ package repository
 
 import (
 	"database/sql"
+
 	"3dmodels/internal/models"
 )
 
@@ -18,7 +19,7 @@ func (r *CategoryRepository) GetByPath(path string) (*models.Category, error) {
 	var parentID sql.NullInt64
 	err := r.db.QueryRow(`
 		SELECT id, name, path, parent_id, depth
-		FROM categories WHERE path = ?`, path).Scan(
+		FROM categories WHERE path = $1`, path).Scan(
 		&c.ID, &c.Name, &c.Path, &parentID, &c.Depth,
 	)
 	if err != nil {
@@ -31,22 +32,19 @@ func (r *CategoryRepository) GetByPath(path string) (*models.Category, error) {
 }
 
 func (r *CategoryRepository) Create(c *models.Category) error {
-	res, err := r.db.Exec(`
+	err := r.db.QueryRow(`
 		INSERT INTO categories (name, path, parent_id, depth)
-		VALUES (?, ?, ?, ?)`,
+		VALUES ($1, $2, $3, $4)
+		RETURNING id`,
 		c.Name, c.Path, c.ParentID, c.Depth,
-	)
-	if err != nil {
-		return err
-	}
-	c.ID, _ = res.LastInsertId()
-	return nil
+	).Scan(&c.ID)
+	return err
 }
 
 func (r *CategoryRepository) GetByDepth(depth int) ([]models.Category, error) {
 	rows, err := r.db.Query(`
 		SELECT id, name, path, parent_id, depth
-		FROM categories WHERE depth = ? ORDER BY name ASC`, depth)
+		FROM categories WHERE depth = $1 ORDER BY name ASC`, depth)
 	if err != nil {
 		return nil, err
 	}
@@ -69,7 +67,7 @@ func (r *CategoryRepository) GetByDepth(depth int) ([]models.Category, error) {
 func (r *CategoryRepository) GetChildren(parentID int64) ([]models.Category, error) {
 	rows, err := r.db.Query(`
 		SELECT id, name, path, parent_id, depth
-		FROM categories WHERE parent_id = ? ORDER BY name ASC`, parentID)
+		FROM categories WHERE parent_id = $1 ORDER BY name ASC`, parentID)
 	if err != nil {
 		return nil, err
 	}
@@ -93,4 +91,3 @@ func (r *CategoryRepository) DeleteAll() error {
 	_, err := r.db.Exec(`DELETE FROM categories`)
 	return err
 }
-

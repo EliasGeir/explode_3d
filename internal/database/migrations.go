@@ -2,34 +2,42 @@ package database
 
 const schema = `
 CREATE TABLE IF NOT EXISTS authors (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     name TEXT NOT NULL UNIQUE,
     url TEXT DEFAULT '',
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS categories (
+    id SERIAL PRIMARY KEY,
+    name TEXT NOT NULL,
+    path TEXT NOT NULL UNIQUE,
+    parent_id INTEGER REFERENCES categories(id) ON DELETE CASCADE,
+    depth INTEGER NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS models (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     name TEXT NOT NULL,
     path TEXT NOT NULL UNIQUE,
     author_id INTEGER REFERENCES authors(id) ON DELETE SET NULL,
     notes TEXT DEFAULT '',
     thumbnail_path TEXT DEFAULT '',
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS model_files (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     model_id INTEGER NOT NULL REFERENCES models(id) ON DELETE CASCADE,
     file_path TEXT NOT NULL,
     file_name TEXT NOT NULL,
     file_ext TEXT NOT NULL,
-    file_size INTEGER DEFAULT 0
+    file_size BIGINT DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS tags (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     name TEXT NOT NULL UNIQUE,
     color TEXT DEFAULT '#6b7280'
 );
@@ -41,9 +49,9 @@ CREATE TABLE IF NOT EXISTS model_tags (
 );
 
 CREATE TABLE IF NOT EXISTS model_groups (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     name TEXT NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS model_group_members (
@@ -52,18 +60,10 @@ CREATE TABLE IF NOT EXISTS model_group_members (
     PRIMARY KEY (group_id, model_id)
 );
 
-CREATE TABLE IF NOT EXISTS categories (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    path TEXT NOT NULL UNIQUE,
-    parent_id INTEGER REFERENCES categories(id) ON DELETE CASCADE,
-    depth INTEGER NOT NULL
-);
-
 CREATE TABLE IF NOT EXISTS settings (
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_models_name ON models(name);
@@ -75,21 +75,28 @@ CREATE INDEX IF NOT EXISTS idx_categories_path ON categories(path);
 CREATE INDEX IF NOT EXISTS idx_categories_parent ON categories(parent_id);
 `
 
-const ftsSchema = `
-CREATE VIRTUAL TABLE IF NOT EXISTS models_fts USING fts5(name, content='models', content_rowid='id');
+const ftsSetup = `
+-- No separate FTS table needed; search_vector column + GIN index on models table
+-- Column and index are added conditionally in database.go migrate()
 `
 
-const ftsTriggers = `
-CREATE TRIGGER IF NOT EXISTS models_ai AFTER INSERT ON models BEGIN
-    INSERT INTO models_fts(rowid, name) VALUES (new.id, new.name);
+const searchTrigger = `
+CREATE OR REPLACE FUNCTION models_search_update() RETURNS TRIGGER AS $$
+BEGIN
+  NEW.search_vector := to_tsvector('simple', COALESCE(NEW.name, ''));
+  RETURN NEW;
 END;
+$$ LANGUAGE plpgsql;
 
-CREATE TRIGGER IF NOT EXISTS models_ad AFTER DELETE ON models BEGIN
-    INSERT INTO models_fts(models_fts, rowid, name) VALUES('delete', old.id, old.name);
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger WHERE tgname = 'models_search_trigger'
+  ) THEN
+    CREATE TRIGGER models_search_trigger
+      BEFORE INSERT OR UPDATE OF name ON models
+      FOR EACH ROW EXECUTE FUNCTION models_search_update();
+  END IF;
 END;
-
-CREATE TRIGGER IF NOT EXISTS models_au AFTER UPDATE ON models BEGIN
-    INSERT INTO models_fts(models_fts, rowid, name) VALUES('delete', old.id, old.name);
-    INSERT INTO models_fts(rowid, name) VALUES (new.id, new.name);
-END;
+$$;
 `

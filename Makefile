@@ -1,7 +1,7 @@
 .PHONY: build run generate clean
 
 build: generate
-	CGO_ENABLED=1 go build -tags fts5 -o 3dmodels .
+	go build -o 3dmodels .
 
 run: build
 	./3dmodels

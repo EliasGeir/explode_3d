@@ -34,7 +34,7 @@ func (r *AuthorRepository) GetAll() ([]models.Author, error) {
 
 func (r *AuthorRepository) GetByID(id int64) (*models.Author, error) {
 	a := &models.Author{}
-	err := r.db.QueryRow(`SELECT id, name, url, created_at FROM authors WHERE id = ?`, id).Scan(
+	err := r.db.QueryRow(`SELECT id, name, url, created_at FROM authors WHERE id = $1`, id).Scan(
 		&a.ID, &a.Name, &a.URL, &a.CreatedAt,
 	)
 	if err != nil {
@@ -44,21 +44,21 @@ func (r *AuthorRepository) GetByID(id int64) (*models.Author, error) {
 }
 
 func (r *AuthorRepository) Create(name, url string) (*models.Author, error) {
-	res, err := r.db.Exec(`INSERT INTO authors (name, url) VALUES (?, ?)`, name, url)
+	var id int64
+	err := r.db.QueryRow(`INSERT INTO authors (name, url) VALUES ($1, $2) RETURNING id`, name, url).Scan(&id)
 	if err != nil {
 		return nil, err
 	}
-	id, _ := res.LastInsertId()
 	return &models.Author{ID: id, Name: name, URL: url}, nil
 }
 
 func (r *AuthorRepository) Update(id int64, name, url string) error {
-	_, err := r.db.Exec(`UPDATE authors SET name = ?, url = ? WHERE id = ?`, name, url, id)
+	_, err := r.db.Exec(`UPDATE authors SET name = $1, url = $2 WHERE id = $3`, name, url, id)
 	return err
 }
 
 func (r *AuthorRepository) Delete(id int64) error {
-	_, err := r.db.Exec(`DELETE FROM authors WHERE id = ?`, id)
+	_, err := r.db.Exec(`DELETE FROM authors WHERE id = $1`, id)
 	return err
 }
 
@@ -68,7 +68,7 @@ type AuthorWithCount struct {
 }
 
 func (r *AuthorRepository) Search(query string) ([]models.Author, error) {
-	rows, err := r.db.Query(`SELECT id, name, url, created_at FROM authors WHERE name LIKE ? ORDER BY name LIMIT 10`, "%"+query+"%")
+	rows, err := r.db.Query(`SELECT id, name, url, created_at FROM authors WHERE name ILIKE $1 ORDER BY name LIMIT 10`, "%"+query+"%")
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +87,7 @@ func (r *AuthorRepository) Search(query string) ([]models.Author, error) {
 
 func (r *AuthorRepository) GetByName(name string) (*models.Author, error) {
 	a := &models.Author{}
-	err := r.db.QueryRow(`SELECT id, name, url, created_at FROM authors WHERE name = ? COLLATE NOCASE`, name).Scan(&a.ID, &a.Name, &a.URL, &a.CreatedAt)
+	err := r.db.QueryRow(`SELECT id, name, url, created_at FROM authors WHERE LOWER(name) = LOWER($1)`, name).Scan(&a.ID, &a.Name, &a.URL, &a.CreatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -99,7 +99,7 @@ func (r *AuthorRepository) GetAllWithCount() ([]AuthorWithCount, error) {
 		SELECT a.id, a.name, a.url, a.created_at, COUNT(m.id) as cnt
 		FROM authors a
 		LEFT JOIN models m ON m.author_id = a.id
-		GROUP BY a.id
+		GROUP BY a.id, a.name, a.url, a.created_at
 		ORDER BY a.name`)
 	if err != nil {
 		return nil, err
