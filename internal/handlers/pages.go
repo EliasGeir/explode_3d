@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"3dmodels/internal/middleware"
 	"3dmodels/internal/models"
 	"3dmodels/internal/repository"
 	"3dmodels/templates"
@@ -148,8 +149,10 @@ func (h *PageHandler) Home(w http.ResponseWriter, r *http.Request) {
 		TagIDs:     tagIDs,
 	}
 
-	templates.Layout(
+	username := middleware.GetUsername(r.Context())
+	templates.LayoutWithUser(
 		"3D Models",
+		username,
 		templates.TopCategories(data),
 		nil, // No sidebar
 		templates.HomePageContent(data),
@@ -254,15 +257,18 @@ func (h *PageHandler) ModelDetail(w http.ResponseWriter, r *http.Request) {
 		BackURL:      backURL,
 	}
 
-	templates.Layout(model.Name, nil, nil, templates.ModelDetailPage(data)).Render(r.Context(), w)
+	username := middleware.GetUsername(r.Context())
+	templates.LayoutWithUser(model.Name, username, nil, nil, templates.ModelDetailPage(data)).Render(r.Context(), w)
 }
 
 func (h *PageHandler) Authors(w http.ResponseWriter, r *http.Request) {
 	authors, _ := h.authorRepo.GetAllWithCount()
-	templates.Layout("Authors", nil, nil, templates.AuthorsPage(authors)).Render(r.Context(), w)
+	username := middleware.GetUsername(r.Context())
+	templates.LayoutWithUser("Authors", username, nil, nil, templates.AuthorsPage(authors)).Render(r.Context(), w)
 }
 
 func (h *PageHandler) Tags(w http.ResponseWriter, r *http.Request) {
 	tags, _ := h.tagRepo.GetAllWithCount()
-	templates.Layout("Tags", nil, nil, templates.TagsPage(tags)).Render(r.Context(), w)
+	username := middleware.GetUsername(r.Context())
+	templates.LayoutWithUser("Tags", username, nil, nil, templates.TagsPage(tags)).Render(r.Context(), w)
 }

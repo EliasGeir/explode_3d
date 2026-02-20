@@ -1,28 +1,46 @@
 package templates
 
-templ Layout(title string, topNav templ.Component, sidebar templ.Component, content templ.Component) {
-	<!DOCTYPE html>
-	<html lang="en" class="h-full bg-gray-900">
-		<head>
-			<meta charset="UTF-8"/>
-			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-			<title>{ title } - 3D Models</title>
-			<script src="https://cdn.tailwindcss.com"></script>
-			<script src="https://unpkg.com/htmx.org@1.9.12"></script>
-			<link rel="stylesheet" href="/static/css/app.css"/>
-			<script>
-				tailwind.config = {
-					darkMode: 'class',
-					theme: {
-						extend: {
-							colors: {
-								primary: '#6366f1',
-							}
+templ layoutHead(title string) {
+	<head>
+		<meta charset="UTF-8"/>
+		<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+		<title>{ title } - 3D Models</title>
+		<script src="https://cdn.tailwindcss.com"></script>
+		<script src="https://unpkg.com/htmx.org@1.9.12"></script>
+		<link rel="stylesheet" href="/static/css/app.css"/>
+		<script>
+			tailwind.config = {
+				darkMode: 'class',
+				theme: {
+					extend: {
+						colors: {
+							primary: '#6366f1',
 						}
 					}
 				}
-			</script>
-		</head>
+			}
+		</script>
+	</head>
+}
+
+templ LoginLayout(title string, content templ.Component) {
+	<!DOCTYPE html>
+	<html lang="en" class="h-full bg-gray-900">
+		@layoutHead(title)
+		<body class="h-full text-gray-100">
+			@content
+		</body>
+	</html>
+}
+
+templ Layout(title string, topNav templ.Component, sidebar templ.Component, content templ.Component) {
+	@LayoutWithUser(title, "", topNav, sidebar, content)
+}
+
+templ LayoutWithUser(title string, username string, topNav templ.Component, sidebar templ.Component, content templ.Component) {
+	<!DOCTYPE html>
+	<html lang="en" class="h-full bg-gray-900">
+		@layoutHead(title)
 		<body class="h-full text-gray-100">
 			<nav class="bg-gray-800 border-b border-gray-700">
 				<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -53,12 +71,22 @@ templ Layout(title string, topNav templ.Component, sidebar templ.Component, cont
 								</svg>
 								Settings
 							</a>
+							if username != "" {
+								<div class="flex items-center gap-3 ml-2 pl-4 border-l border-gray-700">
+									<span class="text-sm text-gray-400">{ username }</span>
+									<form method="POST" action="/logout">
+										<button type="submit" class="text-gray-400 hover:text-red-400 text-sm transition-colors">
+											Logout
+										</button>
+									</form>
+								</div>
+							}
 						</div>
 					</div>
 				</div>
 			</nav>
 			<div id="scan-status" class="max-w-7xl mx-auto px-4"></div>
-			
+
 			if topNav != nil {
 				<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 					@topNav

@@ -11,6 +11,7 @@ import (
 	"3dmodels/internal/config"
 	"3dmodels/internal/database"
 	"3dmodels/internal/handlers"
+	authmw "3dmodels/internal/middleware"
 	"3dmodels/internal/repository"
 	"3dmodels/internal/scanner"
 
@@ -35,6 +36,7 @@ func main() {
 	authorRepo := repository.NewAuthorRepository(db)
 	settingsRepo := repository.NewSettingsRepository(db)
 	categoryRepo := repository.NewCategoryRepository(db)
+	userRepo := repository.NewUserRepository(db)
 
 	sc := scanner.New(cfg.ScanPath, modelRepo, tagRepo, categoryRepo, settingsRepo)
 
@@ -48,71 +50,90 @@ func main() {
 	tagHandler := handlers.NewTagHandler(tagRepo)
 	authorHandler := handlers.NewAuthorHandler(authorRepo)
 	scanHandler := handlers.NewScanHandler(sc)
-	settingsHandler := handlers.NewSettingsHandler(settingsRepo, sc)
+	settingsHandler := handlers.NewSettingsHandler(settingsRepo, sc, userRepo)
 	categoryHandler := handlers.NewCategoryHandler(categoryRepo)
+	authHandler := handlers.NewAuthHandler(userRepo, cfg.JWTSecret)
 
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 
-	// Static files
+	// Static files (public)
 	fileServer := http.FileServer(http.Dir("static"))
 	r.Handle("/static/*", http.StripPrefix("/static/", fileServer))
 
-	// Serve 3D files and images from scan path
-	r.Handle("/files/*", http.StripPrefix("/files/", http.FileServer(http.Dir(cfg.ScanPath))))
+	// Public routes (no auth)
+	r.Get("/login", authHandler.LoginPage)
+	r.Post("/login", authHandler.Login)
+	r.Get("/setup", authHandler.SetupPage)
+	r.Post("/setup", authHandler.Setup)
 
-	// Pages
-	r.Get("/", pageHandler.Home)
-	r.Get("/models/{id}", pageHandler.ModelDetail)
-	r.Get("/authors", pageHandler.Authors)
-	r.Get("/tags", pageHandler.Tags)
-	r.Get("/settings", settingsHandler.Page)
+	// Protected routes
+	r.Group(func(r chi.Router) {
+		r.Use(authmw.RequireAuth(cfg.JWTSecret))
 
-	// API - Models
-	r.Get("/api/models", modelHandler.List)
-	r.Put("/api/models/{id}", modelHandler.Update)
-	r.Put("/api/models/{id}/path", modelHandler.UpdatePath)
-	r.Post("/api/models/{id}/tags", modelHandler.AddTag)
-	r.Get("/api/models/{id}/tags/search", modelHandler.SearchTags)
-	r.Post("/api/models/{id}/tags/add", modelHandler.AddTagByName)
-	r.Delete("/api/models/{id}/tags/{tagId}", modelHandler.RemoveTag)
-	r.Put("/api/models/{id}/author", modelHandler.SetAuthor)
-	r.Get("/api/models/{id}/author/search", modelHandler.SearchAuthors)
-	r.Post("/api/models/{id}/author/set", modelHandler.SetAuthorByName)
-	r.Delete("/api/models/{id}/images/hide", modelHandler.HideImage)
-	r.Delete("/api/models/{id}", modelHandler.DeleteModel)
-	r.Get("/api/models/{id}/merge-candidates", modelHandler.MergeCandidates)
-	r.Post("/api/models/{id}/merge", modelHandler.Merge)
-	r.Put("/api/models/{id}/toggle-hidden", modelHandler.ToggleHidden)
-	r.Get("/api/models/{id}/category/search", modelHandler.SearchCategories)
-	r.Put("/api/models/{id}/category", modelHandler.SetCategory)
+		// Logout
+		r.Post("/logout", authHandler.Logout)
 
-	// API - Tags
-	r.Post("/api/tags", tagHandler.Create)
-	r.Put("/api/tags/{id}", tagHandler.Update)
-	r.Delete("/api/tags/{id}", tagHandler.Delete)
+		// Serve 3D files and images from scan path
+		r.Handle("/files/*", http.StripPrefix("/files/", http.FileServer(http.Dir(cfg.ScanPath))))
 
-	// API - Authors
-	r.Post("/api/authors", authorHandler.Create)
-	r.Put("/api/authors/{id}", authorHandler.Update)
-	r.Delete("/api/authors/{id}", authorHandler.Delete)
+		// Pages
+		r.Get("/", pageHandler.Home)
+		r.Get("/models/{id}", pageHandler.ModelDetail)
+		r.Get("/authors", pageHandler.Authors)
+		r.Get("/tags", pageHandler.Tags)
+		r.Get("/settings", settingsHandler.Page)
 
-	// API - Scanner
-	r.Post("/api/scan", scanHandler.StartScan)
-	r.Get("/api/scan/status", scanHandler.Status)
+		// API - Models
+		r.Get("/api/models", modelHandler.List)
+		r.Put("/api/models/{id}", modelHandler.Update)
+		r.Put("/api/models/{id}/path", modelHandler.UpdatePath)
+		r.Post("/api/models/{id}/tags", modelHandler.AddTag)
+		r.Get("/api/models/{id}/tags/search", modelHandler.SearchTags)
+		r.Post("/api/models/{id}/tags/add", modelHandler.AddTagByName)
+		r.Delete("/api/models/{id}/tags/{tagId}", modelHandler.RemoveTag)
+		r.Put("/api/models/{id}/author", modelHandler.SetAuthor)
+		r.Get("/api/models/{id}/author/search", modelHandler.SearchAuthors)
+		r.Post("/api/models/{id}/author/set", modelHandler.SetAuthorByName)
+		r.Delete("/api/models/{id}/images/hide", modelHandler.HideImage)
+		r.Delete("/api/models/{id}", modelHandler.DeleteModel)
+		r.Get("/api/models/{id}/merge-candidates", modelHandler.MergeCandidates)
+		r.Post("/api/models/{id}/merge", modelHandler.Merge)
+		r.Put("/api/models/{id}/toggle-hidden", modelHandler.ToggleHidden)
+		r.Get("/api/models/{id}/category/search", modelHandler.SearchCategories)
+		r.Put("/api/models/{id}/category", modelHandler.SetCategory)
 
-	// API - Settings
-	r.Post("/api/settings/scan", settingsHandler.ForceScan)
-	r.Put("/api/settings", settingsHandler.SaveSettings)
-	r.Put("/api/settings/scanner-depth", settingsHandler.SaveScannerDepth)
-	r.Put("/api/settings/ignored-folders", settingsHandler.SaveIgnoredFolders)
-	r.Post("/api/settings/ignored-folders/add", settingsHandler.AddIgnoredFolder)
-	r.Put("/api/settings/excluded-folders", settingsHandler.SaveExcludedFolders)
-	r.Delete("/api/settings/excluded-paths", settingsHandler.RemoveExcludedPath)
+		// API - Tags
+		r.Post("/api/tags", tagHandler.Create)
+		r.Put("/api/tags/{id}", tagHandler.Update)
+		r.Delete("/api/tags/{id}", tagHandler.Delete)
 
-	// API - Categories
-	r.Get("/api/categories/{id}/children", categoryHandler.GetChildren)
+		// API - Authors
+		r.Post("/api/authors", authorHandler.Create)
+		r.Put("/api/authors/{id}", authorHandler.Update)
+		r.Delete("/api/authors/{id}", authorHandler.Delete)
+
+		// API - Scanner
+		r.Post("/api/scan", scanHandler.StartScan)
+		r.Get("/api/scan/status", scanHandler.Status)
+
+		// API - Settings
+		r.Post("/api/settings/scan", settingsHandler.ForceScan)
+		r.Put("/api/settings", settingsHandler.SaveSettings)
+		r.Put("/api/settings/scanner-depth", settingsHandler.SaveScannerDepth)
+		r.Put("/api/settings/ignored-folders", settingsHandler.SaveIgnoredFolders)
+		r.Post("/api/settings/ignored-folders/add", settingsHandler.AddIgnoredFolder)
+		r.Put("/api/settings/excluded-folders", settingsHandler.SaveExcludedFolders)
+		r.Delete("/api/settings/excluded-paths", settingsHandler.RemoveExcludedPath)
+
+		// API - Settings: Users
+		r.Post("/api/settings/users", settingsHandler.CreateUser)
+		r.Delete("/api/settings/users/{id}", settingsHandler.DeleteUser)
+
+		// API - Categories
+		r.Get("/api/categories/{id}/children", categoryHandler.GetChildren)
+	})
 
 	addr := fmt.Sprintf(":%s", cfg.Port)
 	srv := &http.Server{Addr: addr, Handler: r}

@@ -1,6 +1,8 @@
 package config
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"os"
 
@@ -16,6 +18,7 @@ type Config struct {
 	DBPassword string
 	DBName     string
 	DBSSLMode  string
+	JWTSecret  string
 }
 
 func (c *Config) DatabaseURL() string {
@@ -26,6 +29,15 @@ func (c *Config) DatabaseURL() string {
 func Load() (*Config, error) {
 	_ = godotenv.Load()
 
+	jwtSecret := os.Getenv("JWT_SECRET")
+	if jwtSecret == "" {
+		b := make([]byte, 32)
+		if _, err := rand.Read(b); err != nil {
+			return nil, fmt.Errorf("generate JWT secret: %w", err)
+		}
+		jwtSecret = hex.EncodeToString(b)
+	}
+
 	cfg := &Config{
 		ScanPath:   getEnv("SCAN_PATH", "."),
 		Port:       getEnv("PORT", "8080"),
@@ -35,6 +47,7 @@ func Load() (*Config, error) {
 		DBPassword: getEnv("DB_PASSWORD", ""),
 		DBName:     getEnv("DB_NAME", "models3d"),
 		DBSSLMode:  getEnv("DB_SSLMODE", "disable"),
+		JWTSecret:  jwtSecret,
 	}
 
 	return cfg, nil

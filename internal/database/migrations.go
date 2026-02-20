@@ -66,6 +66,14 @@ CREATE TABLE IF NOT EXISTS settings (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS users (
+    id SERIAL PRIMARY KEY,
+    username TEXT NOT NULL UNIQUE,
+    email TEXT NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 CREATE INDEX IF NOT EXISTS idx_models_name ON models(name);
 CREATE INDEX IF NOT EXISTS idx_models_author ON models(author_id);
 CREATE INDEX IF NOT EXISTS idx_model_files_model ON model_files(model_id);
