@@ -930,6 +930,31 @@ func (h *ModelHandler) SetCategory(w http.ResponseWriter, r *http.Request) {
 	templates.CategorySelect(updatedModel, allCategories).Render(r.Context(), w)
 }
 
+func (h *ModelHandler) SearchCategories(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	modelID, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+
+	model, err := h.modelRepo.GetByID(modelID)
+	if err != nil {
+		http.Error(w, "Model not found", http.StatusNotFound)
+		return
+	}
+
+	query := strings.TrimSpace(r.URL.Query().Get("q"))
+	var categories []models.Category
+	if query == "" {
+		categories, _ = h.categoryRepo.GetAll()
+	} else {
+		categories, _ = h.categoryRepo.Search(query)
+	}
+
+	templates.CategoryTypeaheadResults(categories, modelID, model.CategoryID).Render(r.Context(), w)
+}
+
 func (h *ModelHandler) HideImage(w http.ResponseWriter, r *http.Request) {
 	modelID, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 	if err != nil {

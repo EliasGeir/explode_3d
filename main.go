@@ -85,6 +85,7 @@ func main() {
 	r.Get("/api/models/{id}/merge-candidates", modelHandler.MergeCandidates)
 	r.Post("/api/models/{id}/merge", modelHandler.Merge)
 	r.Put("/api/models/{id}/toggle-hidden", modelHandler.ToggleHidden)
+	r.Get("/api/models/{id}/category/search", modelHandler.SearchCategories)
 	r.Put("/api/models/{id}/category", modelHandler.SetCategory)
 
 	// API - Tags

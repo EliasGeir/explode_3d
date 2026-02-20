@@ -92,6 +92,32 @@ func (r *CategoryRepository) DeleteAll() error {
 	return err
 }
 
+func (r *CategoryRepository) Search(query string) ([]models.Category, error) {
+	rows, err := r.db.Query(`
+		SELECT id, name, path, parent_id, depth
+		FROM categories
+		WHERE name ILIKE '%' || $1 || '%' OR path ILIKE '%' || $1 || '%'
+		ORDER BY path
+		LIMIT 15`, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var categories []models.Category
+	for rows.Next() {
+		var c models.Category
+		var parentID sql.NullInt64
+		if err := rows.Scan(&c.ID, &c.Name, &c.Path, &parentID, &c.Depth); err == nil {
+			if parentID.Valid {
+				c.ParentID = &parentID.Int64
+			}
+			categories = append(categories, c)
+		}
+	}
+	return categories, nil
+}
+
 func (r *CategoryRepository) GetAll() ([]models.Category, error) {
 	rows, err := r.db.Query(`
 		SELECT id, name, path, parent_id, depth

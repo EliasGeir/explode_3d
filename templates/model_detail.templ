@@ -418,7 +418,7 @@ templ ModelDetailPage(data ModelDetailData) {
 	}
 	<script>
 		document.addEventListener('click', function(e) {
-			var containers = ['tag-typeahead-results', 'author-typeahead-results'];
+			var containers = ['tag-typeahead-results', 'author-typeahead-results', 'category-typeahead-results'];
 			for (var i = 0; i < containers.length; i++) {
 				var el = document.getElementById(containers[i]);
 				if (!el) continue;
@@ -541,20 +541,69 @@ templ AuthorSection(m *models.Model3D, authors []models.Author) {
 }
 
 templ CategorySelect(m *models.Model3D, categories []models.Category) {
-	<div class="relative" id="category-select-wrap">
-		<select
-			name="category_id"
-			hx-put={ fmt.Sprintf("/api/models/%d/category", m.ID) }
-			hx-trigger="change"
-			hx-target="#category-select-wrap"
-			hx-swap="outerHTML"
-			class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+	@CategorySection(m, categories)
+}
+
+templ CategorySection(m *models.Model3D, categories []models.Category) {
+	<div class="relative" id="category-typeahead-wrap">
+		if m.CategoryID != nil {
+			<div class="flex items-center gap-2">
+				<span class="flex-1 text-sm text-white truncate">
+					for _, c := range categories {
+						if c.ID == *m.CategoryID {
+							{ c.Path }
+						}
+					}
+				</span>
+				<button
+					hx-put={ fmt.Sprintf("/api/models/%d/category", m.ID) }
+					hx-vals={ `{"category_id":"0"}` }
+					hx-target="#category-select"
+					hx-swap="innerHTML"
+					class="text-xs text-gray-500 hover:text-red-400 transition-colors"
+				>&times;</button>
+			</div>
+		} else {
+			<input
+				type="text"
+				placeholder="Search category..."
+				autocomplete="off"
+				hx-get={ fmt.Sprintf("/api/models/%d/category/search", m.ID) }
+				hx-trigger="input changed delay:200ms, focus"
+				hx-target="#category-typeahead-results"
+				hx-swap="innerHTML"
+				name="q"
+				class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+			/>
+			<div id="category-typeahead-results" class="absolute z-10 w-full mt-1"></div>
+		}
+	</div>
+}
+
+templ CategoryTypeaheadResults(categories []models.Category, modelID int64, currentCategoryID *int64) {
+	<div class="bg-gray-700 border border-gray-600 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+		<button
+			hx-put={ fmt.Sprintf("/api/models/%d/category", modelID) }
+			hx-vals={ `{"category_id":"0"}` }
+			hx-target="#category-select"
+			hx-swap="innerHTML"
+			class="w-full text-left px-3 py-2 text-sm text-gray-400 hover:bg-gray-600 transition-colors"
 		>
-			<option value="0">No Category</option>
-			for _, c := range categories {
-				<option value={ fmt.Sprintf("%d", c.ID) }>{ c.Path }</option>
-			}
-		</select>
+			No Category
+		</button>
+		for _, c := range categories {
+			<button
+				hx-put={ fmt.Sprintf("/api/models/%d/category", modelID) }
+				hx-vals={ fmt.Sprintf(`{"category_id":"%d"}`, c.ID) }
+				hx-target="#category-select"
+				hx-swap="innerHTML"
+				class={ "w-full text-left px-3 py-2 text-sm hover:bg-gray-600 transition-colors",
+					templ.KV("text-indigo-400", currentCategoryID != nil && *currentCategoryID == c.ID),
+					templ.KV("text-gray-200", currentCategoryID == nil || *currentCategoryID != c.ID) }
+			>
+				{ c.Path }
+			</button>
+		}
 	</div>
 }
 
