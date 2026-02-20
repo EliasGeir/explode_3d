@@ -425,6 +425,11 @@ func (r *ModelRepository) MoveFiles(sourceID, targetID int64) error {
 	return err
 }
 
+func (r *ModelRepository) MoveFileToModelTx(tx *sql.Tx, sourceModelID, targetModelID int64) error {
+	_, err := tx.Exec(`UPDATE model_files SET model_id = $1 WHERE model_id = $2`, targetModelID, sourceModelID)
+	return err
+}
+
 func (r *ModelRepository) DeleteFile(fileID int64) error {
 	_, err := r.db.Exec(`DELETE FROM model_files WHERE id = $1`, fileID)
 	return err

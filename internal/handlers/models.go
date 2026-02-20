@@ -13,6 +13,7 @@ import (
 
 	"3dmodels/internal/models"
 	"3dmodels/internal/repository"
+	"3dmodels/internal/scanner"
 	"3dmodels/templates"
 
 	"github.com/go-chi/chi/v5"
@@ -23,6 +24,7 @@ type ModelHandler struct {
 	tagRepo      *repository.TagRepository
 	authorRepo   *repository.AuthorRepository
 	categoryRepo *repository.CategoryRepository
+	scanner      *scanner.Scanner
 	scanPath     string
 }
 
@@ -30,8 +32,8 @@ func NewModelHandler(mr *repository.ModelRepository, tr *repository.TagRepositor
 	return &ModelHandler{modelRepo: mr, tagRepo: tr, authorRepo: ar, scanPath: scanPath}
 }
 
-func NewModelHandlerWithCategory(mr *repository.ModelRepository, tr *repository.TagRepository, ar *repository.AuthorRepository, cr *repository.CategoryRepository, scanPath string) *ModelHandler {
-	return &ModelHandler{modelRepo: mr, tagRepo: tr, authorRepo: ar, categoryRepo: cr, scanPath: scanPath}
+func NewModelHandlerWithCategory(mr *repository.ModelRepository, tr *repository.TagRepository, ar *repository.AuthorRepository, cr *repository.CategoryRepository, sc *scanner.Scanner, scanPath string) *ModelHandler {
+	return &ModelHandler{modelRepo: mr, tagRepo: tr, authorRepo: ar, categoryRepo: cr, scanner: sc, scanPath: scanPath}
 }
 
 func (h *ModelHandler) List(w http.ResponseWriter, r *http.Request) {
@@ -342,7 +344,13 @@ func (h *ModelHandler) SetAuthorByName(w http.ResponseWriter, r *http.Request) {
 
 	model, _ := h.modelRepo.GetByID(modelID)
 	allAuthors, _ := h.authorRepo.GetAll()
-	templates.AuthorSection(model, allAuthors).Render(r.Context(), w)
+
+	var suggestedTags []repository.TagWithCount
+	if model.Author != nil {
+		suggestedTags, _ = h.tagRepo.GetTopTagsByAuthor(model.Author.ID, modelID, 10)
+	}
+
+	templates.AuthorSectionWithSuggestions(model, allAuthors, suggestedTags, modelID).Render(r.Context(), w)
 }
 
 func (h *ModelHandler) MergeCandidates(w http.ResponseWriter, r *http.Request) {
@@ -636,18 +644,61 @@ func (h *ModelHandler) UpdatePath(w http.ResponseWriter, r *http.Request) {
 	existingModel, err := h.modelRepo.GetByPath(newPath)
 
 	if err == nil && existingModel != nil {
-		// Model with this path exists, perform merge
-		// currentModel becomes the source, existingModel becomes the target
-		log.Printf("[path-update] path %s already exists (model %d), merging model %d into %d",
+		// Model with this path exists — DB-only merge (source → target)
+		log.Printf("[path-update] path %s already exists (model %d), DB-merging model %d into %d",
 			newPath, existingModel.ID, modelID, existingModel.ID)
 
-		// Redirect to the merge endpoint (which will redirect to target model)
-		h.performMerge(w, r, existingModel.ID, modelID)
+		// Exclude the old path from future scans
+		if h.scanner != nil {
+			h.scanner.AddExcludedPath(currentModel.Path)
+		}
+
+		tx, err := h.modelRepo.DB().Begin()
+		if err != nil {
+			http.Error(w, "Failed to start merge", http.StatusInternalServerError)
+			return
+		}
+		defer tx.Rollback()
+
+		// Move file records (keep original file_path values — no filesystem changes)
+		if err := h.modelRepo.MoveFileToModelTx(tx, modelID, existingModel.ID); err != nil {
+			log.Printf("[path-update] failed to move files: %v", err)
+			http.Error(w, "Failed to merge files", http.StatusInternalServerError)
+			return
+		}
+		if err := h.modelRepo.MergeTagsTx(tx, modelID, existingModel.ID); err != nil {
+			log.Printf("[path-update] failed to merge tags: %v", err)
+			http.Error(w, "Failed to merge tags", http.StatusInternalServerError)
+			return
+		}
+		if err := h.modelRepo.CopyMetadataTx(tx, modelID, existingModel.ID); err != nil {
+			log.Printf("[path-update] failed to copy metadata: %v", err)
+			http.Error(w, "Failed to merge metadata", http.StatusInternalServerError)
+			return
+		}
+		if err := h.modelRepo.DeleteTx(tx, modelID); err != nil {
+			log.Printf("[path-update] failed to delete source model: %v", err)
+			http.Error(w, "Failed to delete source model", http.StatusInternalServerError)
+			return
+		}
+		if err := tx.Commit(); err != nil {
+			http.Error(w, "Failed to finalize merge", http.StatusInternalServerError)
+			return
+		}
+
+		log.Printf("[path-update] DB-merged model %d into %d", modelID, existingModel.ID)
+		w.Header().Set("HX-Redirect", fmt.Sprintf("/models/%d", existingModel.ID))
+		w.WriteHeader(http.StatusOK)
 		return
 	}
 
 	// Path doesn't exist, update the current model's path
 	log.Printf("[path-update] updating model %d path from %s to %s", modelID, currentModel.Path, newPath)
+
+	// Exclude the old path from future scans
+	if h.scanner != nil {
+		h.scanner.AddExcludedPath(currentModel.Path)
+	}
 
 	// Update model path in database
 	if err := h.modelRepo.UpdatePath(modelID, newPath); err != nil {
@@ -897,6 +948,11 @@ func (h *ModelHandler) SetCategory(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
+	}
+
+	// Exclude the old path from future scans if it changed
+	if currentModel.Path != updatedModel.Path && h.scanner != nil {
+		h.scanner.AddExcludedPath(currentModel.Path)
 	}
 
 	// Move files from old path to new path in the filesystem

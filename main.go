@@ -44,7 +44,7 @@ func main() {
 	scanner.StartScheduler(ctx, sc, settingsRepo)
 
 	pageHandler := handlers.NewPageHandler(modelRepo, tagRepo, authorRepo, categoryRepo, cfg.ScanPath)
-	modelHandler := handlers.NewModelHandlerWithCategory(modelRepo, tagRepo, authorRepo, categoryRepo, cfg.ScanPath)
+	modelHandler := handlers.NewModelHandlerWithCategory(modelRepo, tagRepo, authorRepo, categoryRepo, sc, cfg.ScanPath)
 	tagHandler := handlers.NewTagHandler(tagRepo)
 	authorHandler := handlers.NewAuthorHandler(authorRepo)
 	scanHandler := handlers.NewScanHandler(sc)
@@ -109,6 +109,7 @@ func main() {
 	r.Put("/api/settings/ignored-folders", settingsHandler.SaveIgnoredFolders)
 	r.Post("/api/settings/ignored-folders/add", settingsHandler.AddIgnoredFolder)
 	r.Put("/api/settings/excluded-folders", settingsHandler.SaveExcludedFolders)
+	r.Delete("/api/settings/excluded-paths", settingsHandler.RemoveExcludedPath)
 
 	// API - Categories
 	r.Get("/api/categories/{id}/children", categoryHandler.GetChildren)

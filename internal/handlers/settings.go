@@ -35,6 +35,15 @@ func (h *SettingsHandler) Page(w http.ResponseWriter, r *http.Request) {
 
 	excludedFolders := h.settingsRepo.GetString("excluded_folders", "")
 
+	excludedPathsStr := h.settingsRepo.GetString("excluded_paths", "")
+	var excludedPaths []string
+	for _, p := range strings.Split(excludedPathsStr, "\n") {
+		p = strings.TrimSpace(p)
+		if p != "" {
+			excludedPaths = append(excludedPaths, p)
+		}
+	}
+
 	scannerMinDepth := h.settingsRepo.GetString("scanner_min_depth", "2")
 
 
@@ -52,6 +61,8 @@ func (h *SettingsHandler) Page(w http.ResponseWriter, r *http.Request) {
 		ScannerMinDepth:    scannerMinDepth,
 
 		ExcludedFolders:    excludedFolders,
+
+		ExcludedPaths:      excludedPaths,
 
 	}
 
@@ -121,6 +132,32 @@ func (h *SettingsHandler) SaveSettings(w http.ResponseWriter, r *http.Request) {
 	}
 
 	templates.SettingsSaved().Render(r.Context(), w)
+}
+
+func (h *SettingsHandler) RemoveExcludedPath(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "Bad request", http.StatusBadRequest)
+		return
+	}
+
+	path := strings.TrimSpace(r.FormValue("path"))
+	if path == "" {
+		http.Error(w, "Path is required", http.StatusBadRequest)
+		return
+	}
+
+	h.scanner.RemoveExcludedPath(path)
+
+	// Return updated list
+	val := h.settingsRepo.GetString("excluded_paths", "")
+	var paths []string
+	for _, p := range strings.Split(val, "\n") {
+		p = strings.TrimSpace(p)
+		if p != "" {
+			paths = append(paths, p)
+		}
+	}
+	templates.ExcludedPathsList(paths).Render(r.Context(), w)
 }
 
 func (h *SettingsHandler) SaveIgnoredFolders(w http.ResponseWriter, r *http.Request) {

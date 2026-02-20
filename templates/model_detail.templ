@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 	"3dmodels/internal/models"
+	"3dmodels/internal/repository"
 )
 
 func sortedGroupKeys(m map[string][]models.ModelFile) []string {
@@ -538,6 +539,30 @@ templ AuthorSection(m *models.Model3D, authors []models.Author) {
 			<div id="author-typeahead-results" class="absolute z-10 w-full mt-1"></div>
 		}
 	</div>
+}
+
+templ AuthorSectionWithSuggestions(m *models.Model3D, authors []models.Author, suggestedTags []repository.TagWithCount, modelID int64) {
+	@AuthorSection(m, authors)
+	if len(suggestedTags) > 0 {
+		<div class="mt-2 pt-2 border-t border-gray-700">
+			<p class="text-xs text-gray-500 mb-1.5">Tags used by this author:</p>
+			<div class="flex flex-wrap gap-1">
+				for _, t := range suggestedTags {
+					<button
+						hx-post={ fmt.Sprintf("/api/models/%d/tags/add", modelID) }
+						hx-vals={ fmt.Sprintf(`{"name":"%s"}`, t.Name) }
+						hx-target="#tag-section"
+						hx-swap="innerHTML"
+						class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium text-white/80 hover:text-white cursor-pointer transition-colors hover:ring-1 hover:ring-white/30"
+						style={ fmt.Sprintf("background-color: %s", t.Color) }
+						title={ fmt.Sprintf("Used %d times", t.Count) }
+					>
+						+ { t.Name }
+					</button>
+				}
+			</div>
+		</div>
+	}
 }
 
 templ CategorySelect(m *models.Model3D, categories []models.Category) {

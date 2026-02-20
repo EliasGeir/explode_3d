@@ -37,7 +37,8 @@ type Scanner struct {
 	settingsRepo *repository.SettingsRepository
 	mu           sync.Mutex
 	status       models.ScanStatus
-	excludedFolders map[string]bool  // Cache for excluded folders
+	excludedFolders map[string]bool  // Cache for excluded folders (by name)
+	excludedPaths   map[string]bool  // Cache for excluded paths (full relative paths)
 }
 
 func New(rootPath string, modelRepo *repository.ModelRepository, tagRepo *repository.TagRepository, categoryRepo *repository.CategoryRepository, settingsRepo *repository.SettingsRepository) *Scanner {
@@ -49,8 +50,9 @@ func New(rootPath string, modelRepo *repository.ModelRepository, tagRepo *reposi
 		settingsRepo: settingsRepo,
 		excludedFolders: make(map[string]bool),
 	}
-	// Load excluded folders initially
+	// Load exclusions initially
 	scanner.loadExcludedFolders()
+	scanner.loadExcludedPaths()
 	return scanner
 }
 
@@ -117,6 +119,81 @@ func (s *Scanner) RefreshExcludedFolders() {
 	}
 }
 
+// loadExcludedPaths loads excluded paths from settings into the cache
+func (s *Scanner) loadExcludedPaths() {
+	s.excludedPaths = make(map[string]bool)
+
+	if s.settingsRepo == nil {
+		return
+	}
+
+	val, err := s.settingsRepo.Get("excluded_paths")
+	if err != nil || val == "" {
+		return
+	}
+
+	for _, p := range strings.Split(val, "\n") {
+		p = strings.TrimSpace(p)
+		if p != "" {
+			s.excludedPaths[p] = true
+		}
+	}
+}
+
+// isExcludedPath checks if a relative path is in the excluded paths list
+func (s *Scanner) isExcludedPath(relPath string) bool {
+	if s.excludedPaths == nil {
+		return false
+	}
+	_, exists := s.excludedPaths[relPath]
+	return exists
+}
+
+// AddExcludedPath adds a relative path to the excluded paths list
+func (s *Scanner) AddExcludedPath(relPath string) {
+	if s.settingsRepo == nil || relPath == "" || relPath == "." {
+		return
+	}
+
+	// Load current value
+	current, _ := s.settingsRepo.Get("excluded_paths")
+	// Check if already present
+	for _, p := range strings.Split(current, "\n") {
+		if strings.TrimSpace(p) == relPath {
+			return
+		}
+	}
+
+	// Append
+	if current == "" {
+		current = relPath
+	} else {
+		current = current + "\n" + relPath
+	}
+	s.settingsRepo.Set("excluded_paths", current)
+	s.loadExcludedPaths()
+	log.Printf("[scan] added excluded path: %s", relPath)
+}
+
+// RemoveExcludedPath removes a relative path from the excluded paths list
+func (s *Scanner) RemoveExcludedPath(relPath string) {
+	if s.settingsRepo == nil || relPath == "" {
+		return
+	}
+
+	current, _ := s.settingsRepo.Get("excluded_paths")
+	var remaining []string
+	for _, p := range strings.Split(current, "\n") {
+		p = strings.TrimSpace(p)
+		if p != "" && p != relPath {
+			remaining = append(remaining, p)
+		}
+	}
+	s.settingsRepo.Set("excluded_paths", strings.Join(remaining, "\n"))
+	s.loadExcludedPaths()
+	log.Printf("[scan] removed excluded path: %s", relPath)
+}
+
 func (s *Scanner) StartScan() {
 	s.mu.Lock()
 	if s.status.Running {
@@ -178,6 +255,10 @@ func (s *Scanner) runScan() {
 		}
 	}()
 
+	// Reload exclusion lists
+	s.loadExcludedFolders()
+	s.loadExcludedPaths()
+
 	// Load ignored folder names from settings
 	ignoredCSV := s.settingsRepo.GetString("ignored_folder_names", defaultIgnoredFolders)
 	ignoredRegex := buildIgnoredRegex(ignoredCSV)
@@ -223,6 +304,11 @@ func (s *Scanner) scanDirRecursive(dir string, ignoredRegex *regexp.Regexp, dept
 	// Check if this directory should be excluded from scanning
 	if s.isExcludedFolder(filepath.Base(dir)) {
 		log.Printf("[scan] skipping excluded folder: %s", dir)
+		return
+	}
+
+	if s.isExcludedPath(relPath) {
+		log.Printf("[scan] skipping excluded path: %s", relPath)
 		return
 	}
 

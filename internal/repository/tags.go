@@ -95,6 +95,34 @@ func (r *TagRepository) GetByName(name string) (*models.Tag, error) {
 	return t, nil
 }
 
+func (r *TagRepository) GetTopTagsByAuthor(authorID int64, excludeModelID int64, limit int) ([]TagWithCount, error) {
+	rows, err := r.db.Query(`
+		SELECT t.id, t.name, t.color, COUNT(*) as cnt
+		FROM tags t
+		JOIN model_tags mt ON mt.tag_id = t.id
+		JOIN models m ON m.id = mt.model_id
+		WHERE m.author_id = $1
+		  AND mt.model_id != $2
+		  AND t.id NOT IN (SELECT tag_id FROM model_tags WHERE model_id = $3)
+		GROUP BY t.id, t.name, t.color
+		ORDER BY cnt DESC
+		LIMIT $4`, authorID, excludeModelID, excludeModelID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var tags []TagWithCount
+	for rows.Next() {
+		var t TagWithCount
+		if err := rows.Scan(&t.ID, &t.Name, &t.Color, &t.Count); err != nil {
+			return nil, err
+		}
+		tags = append(tags, t)
+	}
+	return tags, nil
+}
+
 func (r *TagRepository) GetAllWithCount() ([]TagWithCount, error) {
 	rows, err := r.db.Query(`
 		SELECT t.id, t.name, t.color, COUNT(mt.model_id) as cnt
