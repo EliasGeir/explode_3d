@@ -3,6 +3,7 @@ package templates
 import (
 	"fmt"
 	"net/url"
+	"strings"
 	"3dmodels/internal/models"
 	"3dmodels/internal/repository"
 )
@@ -18,6 +19,8 @@ type HomeData struct {
 	Query      string
 	TotalPages int
 	CategoryID *int64 // Current selected category
+	AuthorID   *int64 // Current selected author
+	TagIDs     []int64 // Current selected tags
 }
 
 templ HomePageContent(data HomeData) {
@@ -32,7 +35,7 @@ templ HomePageContent(data HomeData) {
 	</div>
 }
 
-templ TopCategories(categories []models.Category) {
+templ TopCategories(data HomeData) {
 	<div class="flex flex-wrap gap-2 py-4 border-b border-gray-700 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 mb-8">
 		<a
 			href="/"
@@ -40,18 +43,26 @@ templ TopCategories(categories []models.Category) {
 			hx-target="#model-grid"
 			hx-swap="innerHTML"
 			hx-push-url="/"
-			class="px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 transition-colors"
+			class={ getClassForCategoryLink(data.CategoryID == nil) }
+			if data.CategoryID == nil {
+				aria-current="page"
+				data-selected="true"
+			}
 		>
 			All Models
 		</a>
-		for _, cat := range categories {
+		for _, cat := range data.Categories {
 			<a
 				href={ templ.SafeURL(fmt.Sprintf("/?category_id=%d", cat.ID)) }
 				hx-get={ fmt.Sprintf("/api/models?category_id=%d", cat.ID) }
 				hx-target="#model-grid"
 				hx-swap="innerHTML"
 				hx-push-url={ fmt.Sprintf("/?category_id=%d", cat.ID) }
-				class="px-4 py-2 rounded-lg text-sm font-medium bg-gray-700 text-gray-200 hover:bg-gray-600 hover:text-white transition-colors"
+				class={ getClassForCategoryLink(data.CategoryID != nil && *data.CategoryID == cat.ID) }
+				if data.CategoryID != nil && *data.CategoryID == cat.ID {
+					aria-current="page"
+					data-selected="true"
+				}
 			>
 				{ cat.Name }
 			</a>
@@ -62,7 +73,7 @@ templ TopCategories(categories []models.Category) {
 templ ModelGrid(data HomeData) {
 	<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
 		for _, m := range data.Models {
-			@ModelCard(m, data.Page, data.Query, data.CategoryID)
+			@ModelCard(m, data.Page, data.Query, data.CategoryID, data.AuthorID, data.TagIDs)
 		}
 	</div>
 	if len(data.Models) == 0 {
@@ -79,7 +90,7 @@ templ ModelGrid(data HomeData) {
 				<!-- Previous Button -->
 				if data.Page > 1 {
 					<a
-						href={ fmt.Sprintf("?page=%d&q=%s", data.Page-1, data.Query) }
+						href={ templ.SafeURL(buildPaginationURL(data.Page-1, data.Query, data.CategoryID, data.AuthorID, data.TagIDs)) }
 						class="px-3 py-1.5 rounded-md bg-gray-700 text-white hover:bg-gray-600 text-sm font-medium"
 					>
 						Previous
@@ -94,7 +105,7 @@ templ ModelGrid(data HomeData) {
 				<!-- Show first page -->
 				if data.Page > 3 {
 					<a
-						href={ fmt.Sprintf("?page=1&q=%s", data.Query) }
+						href={ templ.SafeURL(buildPaginationURL(1, data.Query, data.CategoryID, data.AuthorID, data.TagIDs)) }
 						class="px-3 py-1.5 rounded-md bg-gray-700 text-white hover:bg-gray-600 text-sm font-medium"
 					>
 						1
@@ -112,7 +123,7 @@ templ ModelGrid(data HomeData) {
 						</span>
 					} else {
 						<a
-							href={ fmt.Sprintf("?page=%d&q=%s", i, data.Query) }
+							href={ templ.SafeURL(buildPaginationURL(i, data.Query, data.CategoryID, data.AuthorID, data.TagIDs)) }
 							class="px-3 py-1.5 rounded-md bg-gray-700 text-white hover:bg-gray-600 text-sm font-medium"
 						>
 							{ fmt.Sprintf("%d", i) }
@@ -126,7 +137,7 @@ templ ModelGrid(data HomeData) {
 						<span class="px-2 text-gray-500 text-sm">...</span>
 					}
 					<a
-						href={ fmt.Sprintf("?page=%d&q=%s", data.TotalPages, data.Query) }
+						href={ templ.SafeURL(buildPaginationURL(data.TotalPages, data.Query, data.CategoryID, data.AuthorID, data.TagIDs)) }
 						class="px-3 py-1.5 rounded-md bg-gray-700 text-white hover:bg-gray-600 text-sm font-medium"
 					>
 						{ fmt.Sprintf("%d", data.TotalPages) }
@@ -136,7 +147,7 @@ templ ModelGrid(data HomeData) {
 				<!-- Next Button -->
 				if data.Page < data.TotalPages {
 					<a
-						href={ fmt.Sprintf("?page=%d&q=%s", data.Page+1, data.Query) }
+						href={ templ.SafeURL(buildPaginationURL(data.Page+1, data.Query, data.CategoryID, data.AuthorID, data.TagIDs)) }
 						class="px-3 py-1.5 rounded-md bg-gray-700 text-white hover:bg-gray-600 text-sm font-medium"
 					>
 						Next
@@ -172,12 +183,22 @@ func max(a, b int) int {
 	return b
 }
 
-func buildModelURL(modelID int64, page int, query string, categoryID *int64) string {
+func buildModelURL(modelID int64, page int, query string, categoryID *int64, authorID *int64, tagIDs []int64) string {
 	baseURL := fmt.Sprintf("/models/%d", modelID)
 	params := url.Values{}
 
 	if categoryID != nil {
 		params.Add("category_id", fmt.Sprintf("%d", *categoryID))
+	}
+	if authorID != nil {
+		params.Add("author_id", fmt.Sprintf("%d", *authorID))
+	}
+	if len(tagIDs) > 0 {
+		var tagIDStrs []string
+		for _, tagID := range tagIDs {
+			tagIDStrs = append(tagIDStrs, fmt.Sprintf("%d", tagID))
+		}
+		params.Add("tags", strings.Join(tagIDStrs, ","))
 	}
 	if page > 1 {
 		params.Add("page", fmt.Sprintf("%d", page))
@@ -193,12 +214,73 @@ func buildModelURL(modelID int64, page int, query string, categoryID *int64) str
 	return baseURL
 }
 
-templ ModelCard(m models.Model3D, page int, query string, categoryID *int64) {
-	<a href={ templ.SafeURL(buildModelURL(m.ID, page, query, categoryID)) } class="block bg-gray-800 rounded-lg overflow-hidden hover:ring-2 hover:ring-indigo-500 transition-all group">
-		<div class="aspect-square bg-gray-700 flex items-center justify-center overflow-hidden">
+func buildPaginationURL(page int, query string, categoryID *int64, authorID *int64, tagIDs []int64) string {
+	params := url.Values{}
+	params.Add("page", fmt.Sprintf("%d", page))
+	if query != "" {
+		params.Add("q", query)
+	}
+	if categoryID != nil {
+		params.Add("category_id", fmt.Sprintf("%d", *categoryID))
+	}
+	if authorID != nil {
+		params.Add("author_id", fmt.Sprintf("%d", *authorID))
+	}
+	if len(tagIDs) > 0 {
+		var tagIDStrs []string
+		for _, tagID := range tagIDs {
+			tagIDStrs = append(tagIDStrs, fmt.Sprintf("%d", tagID))
+		}
+		params.Add("tags", strings.Join(tagIDStrs, ","))
+	}
+	return "?" + params.Encode()
+}
+
+func getClassForCategoryLink(isSelected bool) string {
+	baseClass := "px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+	if isSelected {
+		return baseClass + " bg-indigo-600 text-white hover:bg-indigo-700"
+	}
+	return baseClass + " bg-gray-700 text-gray-200 hover:bg-gray-600 hover:text-white"
+}
+
+// Additional helper functions for selected category attributes
+func getAriaCurrentForCategory(isSelected bool) string {
+	if isSelected {
+		return "page"
+	}
+	return ""
+}
+
+func getDataSelectedForCategory(isSelected bool) string {
+	if isSelected {
+		return "true"
+	}
+	return ""
+}
+
+// fileURLHome encodes a relative file path for use in /files/ URLs.
+func fileURLHome(path string) string {
+	parts := strings.Split(path, "/")
+	for i, p := range parts {
+		parts[i] = url.PathEscape(p)
+	}
+	return "/files/" + strings.Join(parts, "/")
+}
+
+templ ModelCard(m models.Model3D, page int, query string, categoryID *int64, authorID *int64, tagIDs []int64) {
+	<a href={ templ.SafeURL(buildModelURL(m.ID, page, query, categoryID, authorID, tagIDs)) } class="block bg-gray-800 rounded-lg overflow-hidden hover:ring-2 hover:ring-indigo-500 transition-all group">
+		<div class="aspect-square bg-gray-700 flex items-center justify-center overflow-hidden relative">
+			if m.Hidden {
+				<div class="absolute inset-0 bg-black/50 flex items-center justify-center z-10">
+					<svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21"></path>
+					</svg>
+				</div>
+			}
 			if m.ThumbnailPath != "" {
 				<img
-					src={ fileURL(m.ThumbnailPath) }
+					src={ fileURLHome(m.ThumbnailPath) }
 					alt={ m.Name }
 					class="w-full h-full object-cover group-hover:scale-105 transition-transform"
 					loading="lazy"

@@ -91,3 +91,26 @@ func (r *CategoryRepository) DeleteAll() error {
 	_, err := r.db.Exec(`DELETE FROM categories`)
 	return err
 }
+
+func (r *CategoryRepository) GetAll() ([]models.Category, error) {
+	rows, err := r.db.Query(`
+		SELECT id, name, path, parent_id, depth
+		FROM categories ORDER BY path, name`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var categories []models.Category
+	for rows.Next() {
+		var c models.Category
+		var parentID sql.NullInt64
+		if err := rows.Scan(&c.ID, &c.Name, &c.Path, &parentID, &c.Depth); err == nil {
+			if parentID.Valid {
+				c.ParentID = &parentID.Int64
+			}
+			categories = append(categories, c)
+		}
+	}
+	return categories, nil
+}

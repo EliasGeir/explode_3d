@@ -144,11 +144,13 @@ func (h *PageHandler) Home(w http.ResponseWriter, r *http.Request) {
 		Query:      query,
 		TotalPages: totalPages,
 		CategoryID: currentCategoryID,
+		AuthorID:   authorID,
+		TagIDs:     tagIDs,
 	}
 
 	templates.Layout(
 		"3D Models",
-		templates.TopCategories(data.Categories),
+		templates.TopCategories(data),
 		nil, // No sidebar
 		templates.HomePageContent(data),
 	).Render(r.Context(), w)
@@ -240,10 +242,13 @@ func (h *PageHandler) ModelDetail(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	allCategories, _ := h.categoryRepo.GetAll()
+
 	data := templates.ModelDetailData{
 		Model:        *model,
 		AllTags:      allTags,
 		AllAuthors:   allAuthors,
+		AllCategories: allCategories,
 		Images:       images,
 		GroupedFiles: groupedFiles,
 		BackURL:      backURL,

@@ -27,9 +27,9 @@ func (r *ModelRepository) GetByID(id int64) (*models.Model3D, error) {
 	var authorID sql.NullInt64
 	var categoryID sql.NullInt64
 	err := r.db.QueryRow(`
-		SELECT m.id, m.name, m.path, m.author_id, m.category_id, COALESCE(m.notes, ''), COALESCE(m.thumbnail_path, ''), m.created_at, m.updated_at
+		SELECT m.id, m.name, m.path, m.author_id, m.category_id, COALESCE(m.notes, ''), COALESCE(m.thumbnail_path, ''), m.hidden, m.created_at, m.updated_at
 		FROM models m WHERE m.id = $1`, id).Scan(
-		&m.ID, &m.Name, &m.Path, &authorID, &categoryID, &m.Notes, &m.ThumbnailPath, &m.CreatedAt, &m.UpdatedAt,
+		&m.ID, &m.Name, &m.Path, &authorID, &categoryID, &m.Notes, &m.ThumbnailPath, &m.Hidden, &m.CreatedAt, &m.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -138,6 +138,9 @@ func (r *ModelRepository) List(params models.ModelListParams) ([]models.Model3D,
 		argIdx++
 	}
 
+	// Exclude hidden models by default
+	conditions = append(conditions, "m.hidden = FALSE")
+
 	where := ""
 	if len(conditions) > 0 {
 		where = "WHERE " + strings.Join(conditions, " AND ")
@@ -153,7 +156,7 @@ func (r *ModelRepository) List(params models.ModelListParams) ([]models.Model3D,
 	// Fetch page
 	offset := (params.Page - 1) * params.PageSize
 	query := fmt.Sprintf(`
-		SELECT m.id, m.name, m.path, m.author_id, m.category_id, COALESCE(m.notes, ''), COALESCE(m.thumbnail_path, ''), m.created_at, m.updated_at
+		SELECT m.id, m.name, m.path, m.author_id, m.category_id, COALESCE(m.notes, ''), COALESCE(m.thumbnail_path, ''), m.hidden, m.created_at, m.updated_at
 		FROM models m %s
 		ORDER BY m.name ASC
 		LIMIT $%d OFFSET $%d`, where, argIdx, argIdx+1)
@@ -170,7 +173,7 @@ func (r *ModelRepository) List(params models.ModelListParams) ([]models.Model3D,
 		var m models.Model3D
 		var authorID sql.NullInt64
 		var categoryID sql.NullInt64
-		if err := rows.Scan(&m.ID, &m.Name, &m.Path, &authorID, &categoryID, &m.Notes, &m.ThumbnailPath, &m.CreatedAt, &m.UpdatedAt); err != nil {
+		if err := rows.Scan(&m.ID, &m.Name, &m.Path, &authorID, &categoryID, &m.Notes, &m.ThumbnailPath, &m.Hidden, &m.CreatedAt, &m.UpdatedAt); err != nil {
 			return nil, 0, err
 		}
 		if authorID.Valid {
@@ -203,10 +206,10 @@ func (r *ModelRepository) List(params models.ModelListParams) ([]models.Model3D,
 
 func (r *ModelRepository) Create(m *models.Model3D) error {
 	err := r.db.QueryRow(`
-		INSERT INTO models (name, path, author_id, category_id, notes, thumbnail_path)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		INSERT INTO models (name, path, author_id, category_id, notes, thumbnail_path, hidden)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		RETURNING id`,
-		m.Name, m.Path, m.AuthorID, m.CategoryID, m.Notes, m.ThumbnailPath,
+		m.Name, m.Path, m.AuthorID, m.CategoryID, m.Notes, m.ThumbnailPath, m.Hidden,
 	).Scan(&m.ID)
 	return err
 }
@@ -215,6 +218,13 @@ func (r *ModelRepository) Update(id int64, name, notes string) error {
 	_, err := r.db.Exec(`
 		UPDATE models SET name = $1, notes = $2, updated_at = NOW()
 		WHERE id = $3`, name, notes, id)
+	return err
+}
+
+func (r *ModelRepository) UpdateWithHidden(id int64, name, notes string, hidden bool) error {
+	_, err := r.db.Exec(`
+		UPDATE models SET name = $1, notes = $2, hidden = $3, updated_at = NOW()
+		WHERE id = $4`, name, notes, hidden, id)
 	return err
 }
 
@@ -235,6 +245,37 @@ func (r *ModelRepository) SetCategory(modelID int64, categoryID *int64) error {
 	return err
 }
 
+func (r *ModelRepository) GetCategoryPath(categoryID int64) (string, error) {
+	var path string
+	err := r.db.QueryRow(`SELECT path FROM categories WHERE id = $1`, categoryID).Scan(&path)
+	return path, err
+}
+
+func (r *ModelRepository) UpdateModelPathForCategory(modelID int64, categoryID *int64) error {
+	model, err := r.GetByID(modelID)
+	if err != nil {
+		return err
+	}
+
+	newPath := model.Path // Default to current path
+
+	if categoryID != nil {
+		categoryPath, err := r.GetCategoryPath(*categoryID)
+		if err != nil {
+			return err
+		}
+		// Construct new path: category_path/model_name
+		newPath = categoryPath + "/" + model.Name
+	}
+
+	// Update the model's path in the database
+	if err := r.UpdatePath(modelID, newPath); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (r *ModelRepository) AddTag(modelID, tagID int64) error {
 	_, err := r.db.Exec(`INSERT INTO model_tags (model_id, tag_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, modelID, tagID)
 	return err
@@ -249,9 +290,9 @@ func (r *ModelRepository) GetByPath(path string) (*models.Model3D, error) {
 	m := &models.Model3D{}
 	var authorID sql.NullInt64
 	err := r.db.QueryRow(`
-		SELECT id, name, path, author_id, COALESCE(notes, ''), COALESCE(thumbnail_path, ''), created_at, updated_at
+		SELECT id, name, path, author_id, COALESCE(notes, ''), COALESCE(thumbnail_path, ''), hidden, created_at, updated_at
 		FROM models WHERE path = $1`, path).Scan(
-		&m.ID, &m.Name, &m.Path, &authorID, &m.Notes, &m.ThumbnailPath, &m.CreatedAt, &m.UpdatedAt,
+		&m.ID, &m.Name, &m.Path, &authorID, &m.Notes, &m.ThumbnailPath, &m.Hidden, &m.CreatedAt, &m.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -488,6 +529,16 @@ func (r *ModelRepository) CopyMetadata(sourceID, targetID int64) error {
 			thumbnail_path = CASE WHEN thumbnail_path = '' THEN (SELECT thumbnail_path FROM models WHERE id = $3) ELSE thumbnail_path END,
 			updated_at = NOW()
 		WHERE id = $4`, sourceID, sourceID, sourceID, targetID)
+	return err
+}
+
+func (r *ModelRepository) ToggleHidden(id int64) error {
+	_, err := r.db.Exec(`UPDATE models SET hidden = NOT hidden, updated_at = NOW() WHERE id = $1`, id)
+	return err
+}
+
+func (r *ModelRepository) SetHidden(id int64, hidden bool) error {
+	_, err := r.db.Exec(`UPDATE models SET hidden = $1, updated_at = NOW() WHERE id = $2`, hidden, id)
 	return err
 }
 

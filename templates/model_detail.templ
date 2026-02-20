@@ -43,6 +43,7 @@ type ModelDetailData struct {
 	Model        models.Model3D
 	AllTags      []models.Tag
 	AllAuthors   []models.Author
+	AllCategories []models.Category
 	Images       []string
 	GroupedFiles map[string][]models.ModelFile
 	BackURL      string // URL to return to when clicking "Back to models"
@@ -468,6 +469,40 @@ templ ModelInfo(data ModelDetailData) {
 				@AuthorSection(&data.Model, data.AllAuthors)
 			</div>
 		</div>
+		
+		<!-- Category Selection -->
+		<div class="mt-4 pt-4 border-t border-gray-700">
+			<label class="block text-sm font-medium text-gray-300 mb-1">Category</label>
+			<div id="category-select">
+				@CategorySelect(&data.Model, data.AllCategories)
+			</div>
+		</div>
+		
+		<!-- Hidden Status Toggle -->
+		<div class="mt-4 pt-4 border-t border-gray-700">
+			<label class="block text-sm font-medium text-gray-300 mb-1">Visibility</label>
+			<div class="flex items-center">
+				<span class="text-sm mr-2">
+					if data.Model.Hidden {
+						<span class="text-red-400">Hidden</span>
+					} else {
+						<span class="text-green-400">Visible</span>
+					}
+				</span>
+				<button
+					hx-put={ fmt.Sprintf("/api/models/%d/toggle-hidden", data.Model.ID) }
+					hx-target="#model-info"
+					hx-swap="innerHTML"
+					class="text-xs bg-gray-700 hover:bg-gray-600 text-white px-2 py-1 rounded transition-colors"
+				>
+					if data.Model.Hidden {
+						Show
+					} else {
+						Hide
+					}
+				</button>
+			</div>
+		</div>
 	</div>
 }
 
@@ -502,6 +537,24 @@ templ AuthorSection(m *models.Model3D, authors []models.Author) {
 			/>
 			<div id="author-typeahead-results" class="absolute z-10 w-full mt-1"></div>
 		}
+	</div>
+}
+
+templ CategorySelect(m *models.Model3D, categories []models.Category) {
+	<div class="relative" id="category-select-wrap">
+		<select
+			name="category_id"
+			hx-put={ fmt.Sprintf("/api/models/%d/category", m.ID) }
+			hx-trigger="change"
+			hx-target="#category-select-wrap"
+			hx-swap="outerHTML"
+			class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+		>
+			<option value="0">No Category</option>
+			for _, c := range categories {
+				<option value={ fmt.Sprintf("%d", c.ID) }>{ c.Path }</option>
+			}
+		</select>
 	</div>
 }
 

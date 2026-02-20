@@ -44,7 +44,7 @@ func main() {
 	scanner.StartScheduler(ctx, sc, settingsRepo)
 
 	pageHandler := handlers.NewPageHandler(modelRepo, tagRepo, authorRepo, categoryRepo, cfg.ScanPath)
-	modelHandler := handlers.NewModelHandler(modelRepo, tagRepo, authorRepo, cfg.ScanPath)
+	modelHandler := handlers.NewModelHandlerWithCategory(modelRepo, tagRepo, authorRepo, categoryRepo, cfg.ScanPath)
 	tagHandler := handlers.NewTagHandler(tagRepo)
 	authorHandler := handlers.NewAuthorHandler(authorRepo)
 	scanHandler := handlers.NewScanHandler(sc)
@@ -84,6 +84,8 @@ func main() {
 	r.Delete("/api/models/{id}", modelHandler.DeleteModel)
 	r.Get("/api/models/{id}/merge-candidates", modelHandler.MergeCandidates)
 	r.Post("/api/models/{id}/merge", modelHandler.Merge)
+	r.Put("/api/models/{id}/toggle-hidden", modelHandler.ToggleHidden)
+	r.Put("/api/models/{id}/category", modelHandler.SetCategory)
 
 	// API - Tags
 	r.Post("/api/tags", tagHandler.Create)

@@ -83,5 +83,18 @@ func migrate(db *sql.DB) error {
 		return fmt.Errorf("exec search trigger: %w", err)
 	}
 
+	// Conditional migration: add hidden column to models if missing
+	var hiddenColCount int
+	err = db.QueryRow(`SELECT COUNT(*) FROM information_schema.columns
+		WHERE table_name = 'models' AND column_name = 'hidden'`).Scan(&hiddenColCount)
+	if err != nil {
+		return fmt.Errorf("check hidden column: %w", err)
+	}
+	if hiddenColCount == 0 {
+		if _, err := db.Exec(`ALTER TABLE models ADD COLUMN hidden BOOLEAN DEFAULT FALSE`); err != nil {
+			return fmt.Errorf("add hidden column: %w", err)
+		}
+	}
+
 	return nil
 }

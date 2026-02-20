@@ -31,6 +31,7 @@ type Model3D struct {
 	CategoryID    *int64    `json:"category_id"`
 	Notes         string    `json:"notes"`
 	ThumbnailPath string    `json:"thumbnail_path"`
+	Hidden        bool      `json:"hidden"`
 	CreatedAt     time.Time `json:"created_at"`
 	UpdatedAt     time.Time `json:"updated_at"`
 	ScannedAt     time.Time `json:"scanned_at"`

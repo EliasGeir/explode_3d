@@ -19,14 +19,19 @@ import (
 )
 
 type ModelHandler struct {
-	modelRepo  *repository.ModelRepository
-	tagRepo    *repository.TagRepository
-	authorRepo *repository.AuthorRepository
-	scanPath   string
+	modelRepo    *repository.ModelRepository
+	tagRepo      *repository.TagRepository
+	authorRepo   *repository.AuthorRepository
+	categoryRepo *repository.CategoryRepository
+	scanPath     string
 }
 
 func NewModelHandler(mr *repository.ModelRepository, tr *repository.TagRepository, ar *repository.AuthorRepository, scanPath string) *ModelHandler {
 	return &ModelHandler{modelRepo: mr, tagRepo: tr, authorRepo: ar, scanPath: scanPath}
+}
+
+func NewModelHandlerWithCategory(mr *repository.ModelRepository, tr *repository.TagRepository, ar *repository.AuthorRepository, cr *repository.CategoryRepository, scanPath string) *ModelHandler {
+	return &ModelHandler{modelRepo: mr, tagRepo: tr, authorRepo: ar, categoryRepo: cr, scanPath: scanPath}
 }
 
 func (h *ModelHandler) List(w http.ResponseWriter, r *http.Request) {
@@ -102,6 +107,8 @@ func (h *ModelHandler) List(w http.ResponseWriter, r *http.Request) {
 		Query:      q,
 		TotalPages: totalPages,
 		CategoryID: categoryID,
+		AuthorID:   params.AuthorID,
+		TagIDs:     params.TagIDs,
 	}
 
 	if err := templates.ModelGrid(data).Render(r.Context(), w); err != nil {
@@ -820,6 +827,107 @@ func (h *ModelHandler) performMerge(w http.ResponseWriter, r *http.Request, targ
 	// Redirect to target model page
 	w.Header().Set("HX-Redirect", fmt.Sprintf("/models/%d", targetID))
 	w.WriteHeader(http.StatusOK)
+}
+
+func (h *ModelHandler) ToggleHidden(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.modelRepo.ToggleHidden(id); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	model, _ := h.modelRepo.GetByID(id)
+	allTags, _ := h.tagRepo.GetAll()
+	allAuthors, _ := h.authorRepo.GetAll()
+
+	data := templates.ModelDetailData{
+		Model:      *model,
+		AllTags:    allTags,
+		AllAuthors: allAuthors,
+	}
+	templates.ModelInfo(data).Render(r.Context(), w)
+}
+
+func (h *ModelHandler) SetCategory(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	modelID, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		http.Error(w, "Invalid model ID", http.StatusBadRequest)
+		return
+	}
+
+	r.ParseForm()
+	categoryIDStr := r.FormValue("category_id")
+
+	var categoryID *int64
+	if categoryIDStr != "" && categoryIDStr != "0" {
+		cid, err := strconv.ParseInt(categoryIDStr, 10, 64)
+		if err == nil {
+			categoryID = &cid
+		}
+	}
+
+	// Get the current model to access its current path
+	currentModel, err := h.modelRepo.GetByID(modelID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Update the category in the database
+	if err := h.modelRepo.SetCategory(modelID, categoryID); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Update the model's path based on the new category
+	if err := h.modelRepo.UpdateModelPathForCategory(modelID, categoryID); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Get the updated model to access its new path
+	updatedModel, err := h.modelRepo.GetByID(modelID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Move files from old path to new path in the filesystem
+	oldPath := filepath.Join(h.scanPath, currentModel.Path)
+	newPath := filepath.Join(h.scanPath, updatedModel.Path)
+
+	// Check if the old path exists before attempting to move
+	if _, err := os.Stat(oldPath); err == nil {
+		// Create the new directory if it doesn't exist
+		if err := os.MkdirAll(filepath.Dir(newPath), 0755); err != nil {
+			log.Printf("Failed to create directory for new path: %v", err)
+			// Continue anyway, might not be needed if it's a direct path
+		}
+
+		// Move the directory/files
+		if err := os.Rename(oldPath, newPath); err != nil {
+			log.Printf("Failed to move model from %s to %s: %v", oldPath, newPath, err)
+			// Log the error but don't return it, as the database update was successful
+		} else {
+			log.Printf("Moved model from %s to %s", oldPath, newPath)
+		}
+	}
+
+	// Get all categories for the dropdown
+	allCategories, err := h.categoryRepo.GetAll()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	templates.CategorySelect(updatedModel, allCategories).Render(r.Context(), w)
 }
 
 func (h *ModelHandler) HideImage(w http.ResponseWriter, r *http.Request) {
