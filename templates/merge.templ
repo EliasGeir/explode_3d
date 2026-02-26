@@ -114,6 +114,7 @@ templ DeleteDialog(modelID int64, modelName string) {
 			<div class="flex items-center justify-between p-4 border-b border-gray-700">
 				<h2 class="text-lg font-semibold text-red-400">Delete model</h2>
 				<button
+					id="delete-close-btn"
 					onclick="document.getElementById('delete-dialog').classList.add('hidden')"
 					class="text-gray-400 hover:text-white text-xl"
 				>&times;</button>
@@ -122,28 +123,32 @@ templ DeleteDialog(modelID int64, modelName string) {
 			<div class="p-4 space-y-4">
 				<div class="bg-red-900/20 border border-red-600/30 rounded-lg p-3">
 					<p class="text-sm text-red-300">
-						This will permanently delete the model folder and all its files from disk. This action <strong>cannot be undone</strong>.
+						This will permanently delete <strong class="text-white">{ modelName }</strong> and all its files from disk. This action <strong>cannot be undone</strong>.
 					</p>
 				</div>
-				<p class="text-sm text-gray-300">
-					To confirm, type the model name: <strong class="text-white">{ modelName }</strong>
-				</p>
-				<input
-					type="text"
-					id="delete-confirm-input"
-					placeholder="Type model name to confirm..."
-					autocomplete="off"
-					class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500"
-				/>
-				<button
-					id="delete-confirm-btn"
-					data-model-name={ modelName }
-					onclick={ deleteConfirm(modelID, modelName) }
-					class="w-full bg-red-600 hover:bg-red-700 disabled:bg-gray-600 disabled:text-gray-400 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-					disabled
-				>
-					Delete permanently
-				</button>
+				<!-- Buttons -->
+				<div id="delete-actions" class="flex gap-3">
+					<button
+						onclick="document.getElementById('delete-dialog').classList.add('hidden')"
+						class="flex-1 bg-gray-600 hover:bg-gray-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+					>
+						Cancel
+					</button>
+					<button
+						onclick={ deleteConfirm(modelID) }
+						class="flex-1 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+					>
+						Delete permanently
+					</button>
+				</div>
+				<!-- Spinner -->
+				<div id="delete-spinner" class="hidden flex flex-col items-center gap-3 py-4">
+					<svg class="animate-spin h-8 w-8 text-red-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+						<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+						<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+					</svg>
+					<p class="text-sm text-gray-400">Deleting model and files from disk...</p>
+				</div>
 			</div>
 		</div>
 	</div>
@@ -154,39 +159,36 @@ templ DeleteDialog(modelID int64, modelName string) {
 			dialog.addEventListener('click', function(e) {
 				if (e.target === dialog) dialog.classList.add('hidden');
 			});
-			var input = document.getElementById('delete-confirm-input');
-			var btn = document.getElementById('delete-confirm-btn');
-			if (input && btn) {
-				input.addEventListener('input', function() {
-					var expected = btn.getAttribute('data-model-name');
-					btn.disabled = (input.value !== expected);
-				});
-			}
 		})();
 	</script>
 }
 
-script deleteConfirm(modelID int64, modelName string) {
-	var input = document.getElementById('delete-confirm-input');
-	if (!input || input.value !== modelName) {
-		alert("The name does not match.");
-		return;
-	}
+script deleteConfirm(modelID int64) {
+	var actions = document.getElementById('delete-actions');
+	var spinner = document.getElementById('delete-spinner');
+	var closeBtn = document.getElementById('delete-close-btn');
+	if (actions) actions.classList.add('hidden');
+	if (spinner) spinner.classList.remove('hidden');
+	if (closeBtn) closeBtn.classList.add('hidden');
 	fetch("/api/models/" + modelID, {
 		method: "DELETE",
-		headers: {"Content-Type": "application/x-www-form-urlencoded"},
-		body: "confirm_name=" + encodeURIComponent(modelName),
 	}).then(function(resp) {
 		if (resp.ok) {
 			var redirect = resp.headers.get("HX-Redirect");
-			if (redirect) {
-				window.location.href = redirect;
-			} else {
-				window.location.href = "/";
-			}
+			window.location.href = redirect || "/";
 		} else {
-			resp.text().then(function(t) { alert("Delete failed: " + t); });
+			resp.text().then(function(t) {
+				if (actions) actions.classList.remove('hidden');
+				if (spinner) spinner.classList.add('hidden');
+				if (closeBtn) closeBtn.classList.remove('hidden');
+				alert("Delete failed: " + t);
+			});
 		}
+	}).catch(function() {
+		if (actions) actions.classList.remove('hidden');
+		if (spinner) spinner.classList.add('hidden');
+		if (closeBtn) closeBtn.classList.remove('hidden');
+		alert("Network error. Please try again.");
 	});
 }
 

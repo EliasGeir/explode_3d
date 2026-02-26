@@ -38,6 +38,7 @@ func main() {
 	categoryRepo := repository.NewCategoryRepository(db)
 	userRepo := repository.NewUserRepository(db)
 	feedbackRepo := repository.NewFeedbackRepository(db)
+	favRepo := repository.NewFavoritesRepository(db)
 
 	sc := scanner.New(cfg.ScanPath, modelRepo, tagRepo, categoryRepo, settingsRepo)
 
@@ -46,7 +47,9 @@ func main() {
 	defer stop()
 	scanner.StartScheduler(ctx, sc, settingsRepo)
 
-	pageHandler := handlers.NewPageHandler(modelRepo, tagRepo, authorRepo, categoryRepo, cfg.ScanPath)
+	pageHandler := handlers.NewPageHandler(modelRepo, tagRepo, authorRepo, categoryRepo, favRepo, cfg.ScanPath)
+	favoritesHandler := handlers.NewFavoritesHandler(favRepo)
+	profileHandler := handlers.NewProfileHandler(userRepo, favRepo)
 	modelHandler := handlers.NewModelHandlerWithCategory(modelRepo, tagRepo, authorRepo, categoryRepo, sc, cfg.ScanPath)
 	tagHandler := handlers.NewTagHandler(tagRepo)
 	authorHandler := handlers.NewAuthorHandler(authorRepo)
@@ -85,6 +88,16 @@ func main() {
 		r.Get("/models/{id}", pageHandler.ModelDetail)
 		r.Get("/authors", pageHandler.Authors)
 		r.Get("/tags", pageHandler.Tags)
+		r.Get("/profile", profileHandler.Page)
+
+		// API - Profile
+		r.Put("/api/profile", profileHandler.UpdateProfile)
+		r.Put("/api/profile/password", profileHandler.ChangePassword)
+		r.Get("/api/profile/favorites", profileHandler.FavoritesList)
+
+		// API - Favorites
+		r.Post("/api/models/{id}/favorite", favoritesHandler.Add)
+		r.Delete("/api/models/{id}/favorite", favoritesHandler.Remove)
 
 		// API - Models
 		r.Get("/api/models", modelHandler.List)

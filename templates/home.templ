@@ -9,18 +9,28 @@ import (
 )
 
 type HomeData struct {
-	Models     []models.Model3D
-	Tags       []repository.TagWithCount
-	Authors    []repository.AuthorWithCount
-	Categories []models.Category
-	Total      int
-	Page       int
-	PageSize   int
-	Query      string
-	TotalPages int
-	CategoryID *int64 // Current selected category
-	AuthorID   *int64 // Current selected author
-	TagIDs     []int64 // Current selected tags
+	Models          []models.Model3D
+	Tags            []repository.TagWithCount
+	Authors         []repository.AuthorWithCount
+	Categories      []models.Category
+	Total           int
+	Page            int
+	PageSize        int
+	Query           string
+	TotalPages      int
+	CategoryID      *int64  // Current selected category
+	AuthorID        *int64  // Current selected author
+	TagIDs          []int64 // Current selected tags
+	UserFavoriteIDs []int64 // IDs of models favorited by the current user
+}
+
+func isFavorited(id int64, ids []int64) bool {
+	for _, fid := range ids {
+		if fid == id {
+			return true
+		}
+	}
+	return false
 }
 
 templ HomePageContent(data HomeData) {
@@ -73,7 +83,7 @@ templ TopCategories(data HomeData) {
 templ ModelGrid(data HomeData) {
 	<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
 		for _, m := range data.Models {
-			@ModelCard(m, data.Page, data.Query, data.CategoryID, data.AuthorID, data.TagIDs)
+			@ModelCard(m, data.Page, data.Query, data.CategoryID, data.AuthorID, data.TagIDs, data.UserFavoriteIDs)
 		}
 	</div>
 	if len(data.Models) == 0 {
@@ -268,9 +278,12 @@ func fileURLHome(path string) string {
 	return "/files/" + strings.Join(parts, "/")
 }
 
-templ ModelCard(m models.Model3D, page int, query string, categoryID *int64, authorID *int64, tagIDs []int64) {
+templ ModelCard(m models.Model3D, page int, query string, categoryID *int64, authorID *int64, tagIDs []int64, userFavoriteIDs []int64) {
 	<a href={ templ.SafeURL(buildModelURL(m.ID, page, query, categoryID, authorID, tagIDs)) } class="block bg-gray-800 rounded-lg overflow-hidden hover:ring-2 hover:ring-indigo-500 transition-all group">
 		<div class="aspect-square bg-gray-700 flex items-center justify-center overflow-hidden relative">
+			<div class="absolute top-2 left-2 z-20">
+				@StarButton(m.ID, isFavorited(m.ID, userFavoriteIDs))
+			</div>
 			if m.Hidden {
 				<div class="absolute inset-0 bg-black/50 flex items-center justify-center z-10">
 					<svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">

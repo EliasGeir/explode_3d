@@ -178,3 +178,24 @@ func (r *UserRepository) RemoveRole(userID, roleID int64) error {
 	)
 	return err
 }
+
+func (r *UserRepository) UpdateProfile(id int64, username, email string) error {
+	_, err := r.db.Exec(
+		`UPDATE users SET username = $1, email = $2 WHERE id = $3`,
+		username, email, id,
+	)
+	return err
+}
+
+func (r *UserRepository) VerifyPassword(id int64, password string) (bool, error) {
+	var hash string
+	err := r.db.QueryRow(`SELECT password_hash FROM users WHERE id = $1`, id).Scan(&hash)
+	if err != nil {
+		return false, err
+	}
+	err = bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
+	if err != nil {
+		return false, nil
+	}
+	return true, nil
+}

@@ -91,6 +91,13 @@ type User struct {
 	Roles        []Role    `json:"roles,omitempty"`
 }
 
+type FavoriteModel struct {
+	ModelID       int64
+	ModelName     string
+	ThumbnailPath string
+	CategoryName  string // vuoto se nessuna categoria
+}
+
 type FeedbackCategory struct {
 	ID        int64     `json:"id"`
 	Name      string    `json:"name"`

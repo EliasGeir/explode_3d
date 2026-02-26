@@ -22,11 +22,12 @@ type PageHandler struct {
 	tagRepo      *repository.TagRepository
 	authorRepo   *repository.AuthorRepository
 	categoryRepo *repository.CategoryRepository
+	favRepo      *repository.FavoritesRepository
 	scanPath     string
 }
 
-func NewPageHandler(mr *repository.ModelRepository, tr *repository.TagRepository, ar *repository.AuthorRepository, cr *repository.CategoryRepository, scanPath string) *PageHandler {
-	return &PageHandler{modelRepo: mr, tagRepo: tr, authorRepo: ar, categoryRepo: cr, scanPath: scanPath}
+func NewPageHandler(mr *repository.ModelRepository, tr *repository.TagRepository, ar *repository.AuthorRepository, cr *repository.CategoryRepository, favRepo *repository.FavoritesRepository, scanPath string) *PageHandler {
+	return &PageHandler{modelRepo: mr, tagRepo: tr, authorRepo: ar, categoryRepo: cr, favRepo: favRepo, scanPath: scanPath}
 }
 
 var imageExtensions = map[string]bool{
@@ -134,19 +135,26 @@ func (h *PageHandler) Home(w http.ResponseWriter, r *http.Request) {
 
 	totalPages := (total + pageSize - 1) / pageSize
 
+	userID := middleware.GetUserID(r.Context())
+	var favoriteIDs []int64
+	if userID != 0 && h.favRepo != nil {
+		favoriteIDs, _ = h.favRepo.GetFavoriteIDs(userID)
+	}
+
 	data := templates.HomeData{
-		Models:     modelList,
-		Tags:       tags,
-		Authors:    authors,
-		Categories: topLevelCategories,
-		Total:      total,
-		Page:       page,
-		PageSize:   pageSize,
-		Query:      query,
-		TotalPages: totalPages,
-		CategoryID: currentCategoryID,
-		AuthorID:   authorID,
-		TagIDs:     tagIDs,
+		Models:          modelList,
+		Tags:            tags,
+		Authors:         authors,
+		Categories:      topLevelCategories,
+		Total:           total,
+		Page:            page,
+		PageSize:        pageSize,
+		Query:           query,
+		TotalPages:      totalPages,
+		CategoryID:      currentCategoryID,
+		AuthorID:        authorID,
+		TagIDs:          tagIDs,
+		UserFavoriteIDs: favoriteIDs,
 	}
 
 	username := middleware.GetUsername(r.Context())
@@ -249,14 +257,21 @@ func (h *PageHandler) ModelDetail(w http.ResponseWriter, r *http.Request) {
 
 	allCategories, _ := h.categoryRepo.GetAll()
 
+	detailUserID := middleware.GetUserID(r.Context())
+	var favorited bool
+	if detailUserID != 0 && h.favRepo != nil {
+		favorited, _ = h.favRepo.IsFavorite(detailUserID, id)
+	}
+
 	data := templates.ModelDetailData{
-		Model:        *model,
-		AllTags:      allTags,
-		AllAuthors:   allAuthors,
+		Model:         *model,
+		AllTags:       allTags,
+		AllAuthors:    allAuthors,
 		AllCategories: allCategories,
-		Images:       images,
-		GroupedFiles: groupedFiles,
-		BackURL:      backURL,
+		Images:        images,
+		GroupedFiles:  groupedFiles,
+		BackURL:       backURL,
+		Favorited:     favorited,
 	}
 
 	username := middleware.GetUsername(r.Context())

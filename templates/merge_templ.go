@@ -227,50 +227,37 @@ func DeleteDialog(modelID int64, modelName string) templ.Component {
 			templ_7745c5c3_Var10 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "<div id=\"delete-dialog\" class=\"hidden fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4\"><div class=\"bg-gray-800 rounded-xl w-full max-w-md\" onclick=\"event.stopPropagation()\"><!-- Header --><div class=\"flex items-center justify-between p-4 border-b border-gray-700\"><h2 class=\"text-lg font-semibold text-red-400\">Delete model</h2><button onclick=\"document.getElementById('delete-dialog').classList.add('hidden')\" class=\"text-gray-400 hover:text-white text-xl\">&times;</button></div><!-- Body --><div class=\"p-4 space-y-4\"><div class=\"bg-red-900/20 border border-red-600/30 rounded-lg p-3\"><p class=\"text-sm text-red-300\">This will permanently delete the model folder and all its files from disk. This action <strong>cannot be undone</strong>.</p></div><p class=\"text-sm text-gray-300\">To confirm, type the model name: <strong class=\"text-white\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "<div id=\"delete-dialog\" class=\"hidden fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4\"><div class=\"bg-gray-800 rounded-xl w-full max-w-md\" onclick=\"event.stopPropagation()\"><!-- Header --><div class=\"flex items-center justify-between p-4 border-b border-gray-700\"><h2 class=\"text-lg font-semibold text-red-400\">Delete model</h2><button id=\"delete-close-btn\" onclick=\"document.getElementById('delete-dialog').classList.add('hidden')\" class=\"text-gray-400 hover:text-white text-xl\">&times;</button></div><!-- Body --><div class=\"p-4 space-y-4\"><div class=\"bg-red-900/20 border border-red-600/30 rounded-lg p-3\"><p class=\"text-sm text-red-300\">This will permanently delete <strong class=\"text-white\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var11 string
 		templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(modelName)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/merge.templ`, Line: 129, Col: 76}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/merge.templ`, Line: 126, Col: 73}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "</strong></p><input type=\"text\" id=\"delete-confirm-input\" placeholder=\"Type model name to confirm...\" autocomplete=\"off\" class=\"w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500\"> ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "</strong> and all its files from disk. This action <strong>cannot be undone</strong>.</p></div><!-- Buttons --><div id=\"delete-actions\" class=\"flex gap-3\"><button onclick=\"document.getElementById('delete-dialog').classList.add('hidden')\" class=\"flex-1 bg-gray-600 hover:bg-gray-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors\">Cancel</button> ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templ.RenderScriptItems(ctx, templ_7745c5c3_Buffer, deleteConfirm(modelID, modelName))
+		templ_7745c5c3_Err = templ.RenderScriptItems(ctx, templ_7745c5c3_Buffer, deleteConfirm(modelID))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "<button id=\"delete-confirm-btn\" data-model-name=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "<button onclick=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var12 string
-		templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(modelName)
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/merge.templ`, Line: 140, Col: 32}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
+		var templ_7745c5c3_Var12 templ.ComponentScript = deleteConfirm(modelID)
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var12.Call)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "\" onclick=\"")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		var templ_7745c5c3_Var13 templ.ComponentScript = deleteConfirm(modelID, modelName)
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var13.Call)
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "\" class=\"w-full bg-red-600 hover:bg-red-700 disabled:bg-gray-600 disabled:text-gray-400 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors\" disabled>Delete permanently</button></div></div></div><script>\n\t\t(function() {\n\t\t\tvar dialog = document.getElementById('delete-dialog');\n\t\t\tif (!dialog) return;\n\t\t\tdialog.addEventListener('click', function(e) {\n\t\t\t\tif (e.target === dialog) dialog.classList.add('hidden');\n\t\t\t});\n\t\t\tvar input = document.getElementById('delete-confirm-input');\n\t\t\tvar btn = document.getElementById('delete-confirm-btn');\n\t\t\tif (input && btn) {\n\t\t\t\tinput.addEventListener('input', function() {\n\t\t\t\t\tvar expected = btn.getAttribute('data-model-name');\n\t\t\t\t\tbtn.disabled = (input.value !== expected);\n\t\t\t\t});\n\t\t\t}\n\t\t})();\n\t</script>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "\" class=\"flex-1 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors\">Delete permanently</button></div><!-- Spinner --><div id=\"delete-spinner\" class=\"hidden flex flex-col items-center gap-3 py-4\"><svg class=\"animate-spin h-8 w-8 text-red-400\" xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 24 24\"><circle class=\"opacity-25\" cx=\"12\" cy=\"12\" r=\"10\" stroke=\"currentColor\" stroke-width=\"4\"></circle> <path class=\"opacity-75\" fill=\"currentColor\" d=\"M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z\"></path></svg><p class=\"text-sm text-gray-400\">Deleting model and files from disk...</p></div></div></div></div><script>\n\t\t(function() {\n\t\t\tvar dialog = document.getElementById('delete-dialog');\n\t\t\tif (!dialog) return;\n\t\t\tdialog.addEventListener('click', function(e) {\n\t\t\t\tif (e.target === dialog) dialog.classList.add('hidden');\n\t\t\t});\n\t\t})();\n\t</script>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -278,33 +265,38 @@ func DeleteDialog(modelID int64, modelName string) templ.Component {
 	})
 }
 
-func deleteConfirm(modelID int64, modelName string) templ.ComponentScript {
+func deleteConfirm(modelID int64) templ.ComponentScript {
 	return templ.ComponentScript{
-		Name: `__templ_deleteConfirm_7933`,
-		Function: `function __templ_deleteConfirm_7933(modelID, modelName){var input = document.getElementById('delete-confirm-input');
-	if (!input || input.value !== modelName) {
-		alert("The name does not match.");
-		return;
-	}
+		Name: `__templ_deleteConfirm_30d7`,
+		Function: `function __templ_deleteConfirm_30d7(modelID){var actions = document.getElementById('delete-actions');
+	var spinner = document.getElementById('delete-spinner');
+	var closeBtn = document.getElementById('delete-close-btn');
+	if (actions) actions.classList.add('hidden');
+	if (spinner) spinner.classList.remove('hidden');
+	if (closeBtn) closeBtn.classList.add('hidden');
 	fetch("/api/models/" + modelID, {
 		method: "DELETE",
-		headers: {"Content-Type": "application/x-www-form-urlencoded"},
-		body: "confirm_name=" + encodeURIComponent(modelName),
 	}).then(function(resp) {
 		if (resp.ok) {
 			var redirect = resp.headers.get("HX-Redirect");
-			if (redirect) {
-				window.location.href = redirect;
-			} else {
-				window.location.href = "/";
-			}
+			window.location.href = redirect || "/";
 		} else {
-			resp.text().then(function(t) { alert("Delete failed: " + t); });
+			resp.text().then(function(t) {
+				if (actions) actions.classList.remove('hidden');
+				if (spinner) spinner.classList.add('hidden');
+				if (closeBtn) closeBtn.classList.remove('hidden');
+				alert("Delete failed: " + t);
+			});
 		}
+	}).catch(function() {
+		if (actions) actions.classList.remove('hidden');
+		if (spinner) spinner.classList.add('hidden');
+		if (closeBtn) closeBtn.classList.remove('hidden');
+		alert("Network error. Please try again.");
 	});
 }`,
-		Call:       templ.SafeScript(`__templ_deleteConfirm_7933`, modelID, modelName),
-		CallInline: templ.SafeScriptInline(`__templ_deleteConfirm_7933`, modelID, modelName),
+		Call:       templ.SafeScript(`__templ_deleteConfirm_30d7`, modelID),
+		CallInline: templ.SafeScriptInline(`__templ_deleteConfirm_30d7`, modelID),
 	}
 }
 

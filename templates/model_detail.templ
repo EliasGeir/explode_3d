@@ -41,13 +41,14 @@ func fileURL(path string) string {
 }
 
 type ModelDetailData struct {
-	Model        models.Model3D
-	AllTags      []models.Tag
-	AllAuthors   []models.Author
+	Model         models.Model3D
+	AllTags       []models.Tag
+	AllAuthors    []models.Author
 	AllCategories []models.Category
-	Images       []string
-	GroupedFiles map[string][]models.ModelFile
-	BackURL      string // URL to return to when clicking "Back to models"
+	Images        []string
+	GroupedFiles  map[string][]models.ModelFile
+	BackURL       string // URL to return to when clicking "Back to models"
+	Favorited     bool
 }
 
 type viewableFile struct {
@@ -320,6 +321,11 @@ templ ModelDetailPage(data ModelDetailData) {
 		</div>
 		<!-- Right column: info panel -->
 		<div class="space-y-6">
+			<!-- Favorites -->
+			<div id="favorite-section" class="bg-gray-800 rounded-lg p-4 flex items-center justify-between">
+				<span class="text-sm font-medium text-gray-300">Favorites</span>
+				@StarButton(data.Model.ID, data.Favorited)
+			</div>
 			<div id="model-info">
 				@ModelInfo(data)
 			</div>

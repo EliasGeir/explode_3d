@@ -582,14 +582,6 @@ func (h *ModelHandler) DeleteModel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Double-check: confirm param must match model name
-	r.ParseForm()
-	confirmName := r.FormValue("confirm_name")
-	if confirmName != model.Name {
-		http.Error(w, "Confirmation name does not match", http.StatusBadRequest)
-		return
-	}
-
 	// Delete folder from filesystem
 	modelDir := filepath.Join(h.scanPath, model.Path)
 	if err := os.RemoveAll(modelDir); err != nil {

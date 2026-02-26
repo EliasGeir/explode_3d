@@ -104,6 +104,15 @@ CREATE TABLE IF NOT EXISTS feedbacks (
 CREATE INDEX IF NOT EXISTS idx_feedbacks_status ON feedbacks(status);
 CREATE INDEX IF NOT EXISTS idx_feedbacks_category ON feedbacks(category_id);
 
+CREATE TABLE IF NOT EXISTS user_favorites (
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    model_id INTEGER NOT NULL REFERENCES models(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (user_id, model_id)
+);
+CREATE INDEX IF NOT EXISTS idx_user_favorites_user ON user_favorites(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_favorites_model ON user_favorites(model_id);
+
 CREATE TABLE IF NOT EXISTS roles (
     id SERIAL PRIMARY KEY,
     name TEXT NOT NULL UNIQUE,
