@@ -9,6 +9,7 @@ import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
 import (
+	"3dmodels/internal/i18n"
 	"3dmodels/internal/models"
 	"fmt"
 )
@@ -34,7 +35,33 @@ func MergeButton(modelID int64) templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"bg-gray-800 rounded-lg p-4 space-y-2\"><button onclick=\"document.getElementById('merge-dialog').classList.remove('hidden')\" class=\"w-full bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2\"><svg class=\"w-4 h-4\" fill=\"none\" stroke=\"currentColor\" viewBox=\"0 0 24 24\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4\"></path></svg> Merge with another model</button> <button onclick=\"document.getElementById('delete-dialog').classList.remove('hidden')\" class=\"w-full bg-red-600/20 hover:bg-red-600/40 text-red-400 hover:text-red-300 border border-red-600/30 px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2\"><svg class=\"w-4 h-4\" fill=\"none\" stroke=\"currentColor\" viewBox=\"0 0 24 24\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16\"></path></svg> Delete model</button></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"bg-gray-800 rounded-lg p-4 space-y-2\"><button onclick=\"document.getElementById('merge-dialog').classList.remove('hidden')\" class=\"w-full bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2\"><svg class=\"w-4 h-4\" fill=\"none\" stroke=\"currentColor\" viewBox=\"0 0 24 24\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4\"></path></svg> ")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var2 string
+		templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinStringErrs(i18n.T(ctx, "merge.merge_button"))
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/merge.templ`, Line: 18, Col: 38}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var2))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</button> <button onclick=\"document.getElementById('delete-dialog').classList.remove('hidden')\" class=\"w-full bg-red-600/20 hover:bg-red-600/40 text-red-400 hover:text-red-300 border border-red-600/30 px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2\"><svg class=\"w-4 h-4\" fill=\"none\" stroke=\"currentColor\" viewBox=\"0 0 24 24\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16\"></path></svg> ")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var3 string
+		templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(i18n.T(ctx, "merge.delete_button"))
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/merge.templ`, Line: 27, Col: 39}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "</button></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -62,25 +89,64 @@ func MergeDialog(modelID int64) templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var2 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var2 == nil {
-			templ_7745c5c3_Var2 = templ.NopComponent
+		templ_7745c5c3_Var4 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var4 == nil {
+			templ_7745c5c3_Var4 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<div id=\"merge-dialog\" class=\"hidden fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4\"><div class=\"bg-gray-800 rounded-xl w-full max-w-lg max-h-[80vh] flex flex-col\" onclick=\"event.stopPropagation()\"><!-- Header --><div class=\"flex items-center justify-between p-4 border-b border-gray-700\"><h2 class=\"text-lg font-semibold text-white\">Merge with another model</h2><button onclick=\"document.getElementById('merge-dialog').classList.add('hidden')\" class=\"text-gray-400 hover:text-white text-xl\">&times;</button></div><!-- Search --><div class=\"p-4 border-b border-gray-700\"><input type=\"text\" name=\"q\" placeholder=\"Search models...\" autocomplete=\"off\" hx-get=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<div id=\"merge-dialog\" class=\"hidden fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4\"><div class=\"bg-gray-800 rounded-xl w-full max-w-lg max-h-[80vh] flex flex-col\" onclick=\"event.stopPropagation()\"><!-- Header --><div class=\"flex items-center justify-between p-4 border-b border-gray-700\"><h2 class=\"text-lg font-semibold text-white\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var3 string
-		templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("/api/models/%d/merge-candidates", modelID))
+		var templ_7745c5c3_Var5 string
+		templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(i18n.T(ctx, "merge.merge_title"))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/merge.templ`, Line: 53, Col: 69}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/merge.templ`, Line: 41, Col: 83}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "\" hx-trigger=\"keyup changed delay:300ms, load\" hx-target=\"#merge-candidates\" hx-swap=\"innerHTML\" class=\"w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500\"></div><!-- Results --><div id=\"merge-candidates\" class=\"overflow-y-auto flex-1 p-2\"><div class=\"text-center text-gray-500 text-sm py-8\">Type to search for models...</div></div></div></div><script>\n\t\tdocument.getElementById('merge-dialog').addEventListener('click', function(e) {\n\t\t\tif (e.target === this) {\n\t\t\t\tthis.classList.add('hidden');\n\t\t\t}\n\t\t});\n\t</script>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "</h2><button onclick=\"document.getElementById('merge-dialog').classList.add('hidden')\" class=\"text-gray-400 hover:text-white text-xl\">&times;</button></div><!-- Search --><div class=\"p-4 border-b border-gray-700\"><input type=\"text\" name=\"q\" placeholder=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var6 string
+		templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(i18n.T(ctx, "merge.search_models"))
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/merge.templ`, Line: 52, Col: 53}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "\" autocomplete=\"off\" hx-get=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var7 string
+		templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("/api/models/%d/merge-candidates", modelID))
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/merge.templ`, Line: 54, Col: 69}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "\" hx-trigger=\"keyup changed delay:300ms, load\" hx-target=\"#merge-candidates\" hx-swap=\"innerHTML\" class=\"w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500\"></div><!-- Results --><div id=\"merge-candidates\" class=\"overflow-y-auto flex-1 p-2\"><div class=\"text-center text-gray-500 text-sm py-8\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var8 string
+		templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(i18n.T(ctx, "merge.type_to_search"))
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/merge.templ`, Line: 63, Col: 93}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "</div></div></div></div><script>\n\t\tdocument.getElementById('merge-dialog').addEventListener('click', function(e) {\n\t\t\tif (e.target === this) {\n\t\t\t\tthis.classList.add('hidden');\n\t\t\t}\n\t\t});\n\t</script>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -104,99 +170,112 @@ func MergeCandidates(candidates []models.Model3D, targetID int64) templ.Componen
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var4 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var4 == nil {
-			templ_7745c5c3_Var4 = templ.NopComponent
+		templ_7745c5c3_Var9 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var9 == nil {
+			templ_7745c5c3_Var9 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
 		if len(candidates) == 0 {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<div class=\"text-center text-gray-500 text-sm py-8\">No models found</div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "<div class=\"text-center text-gray-500 text-sm py-8\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var10 string
+			templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(i18n.T(ctx, "merge.no_models_found"))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/merge.templ`, Line: 78, Col: 92}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "</div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else {
 			for _, c := range candidates {
-				templ_7745c5c3_Err = templ.RenderScriptItems(ctx, templ_7745c5c3_Buffer, mergeConfirm(targetID, c.ID, c.Name))
+				templ_7745c5c3_Err = templ.RenderScriptItems(ctx, templ_7745c5c3_Buffer, mergeConfirm(targetID, c.ID, c.Name, i18n.T(ctx, "merge.confirm", c.Name), i18n.T(ctx, "merge.merge_failed")))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<div class=\"merge-candidate p-3 rounded-lg hover:bg-gray-700 transition-colors cursor-pointer\" onclick=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "<div class=\"merge-candidate p-3 rounded-lg hover:bg-gray-700 transition-colors cursor-pointer\" onclick=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var5 templ.ComponentScript = mergeConfirm(targetID, c.ID, c.Name)
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var5.Call)
+				var templ_7745c5c3_Var11 templ.ComponentScript = mergeConfirm(targetID, c.ID, c.Name, i18n.T(ctx, "merge.confirm", c.Name), i18n.T(ctx, "merge.merge_failed"))
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var11.Call)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "\"><div class=\"flex items-center gap-3\"><div class=\"w-12 h-12 rounded-lg bg-gray-700 flex-shrink-0 overflow-hidden flex items-center justify-center\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "\"><div class=\"flex items-center gap-3\"><div class=\"w-12 h-12 rounded-lg bg-gray-700 flex-shrink-0 overflow-hidden flex items-center justify-center\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				if c.ThumbnailPath != "" {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "<img src=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "<img src=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					var templ_7745c5c3_Var6 string
-					templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(fileURL(c.ThumbnailPath))
+					var templ_7745c5c3_Var12 string
+					templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(fileURL(c.ThumbnailPath))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/merge.templ`, Line: 87, Col: 38}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/merge.templ`, Line: 88, Col: 38}
 					}
-					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "\" alt=\"")
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					var templ_7745c5c3_Var7 string
-					templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(c.Name)
-					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/merge.templ`, Line: 88, Col: 20}
-					}
-					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "\" alt=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "\" class=\"w-full h-full object-cover\">")
+					var templ_7745c5c3_Var13 string
+					templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(c.Name)
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/merge.templ`, Line: 89, Col: 20}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "\" class=\"w-full h-full object-cover\">")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				} else {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "<svg class=\"w-6 h-6 text-gray-500\" fill=\"none\" stroke=\"currentColor\" viewBox=\"0 0 24 24\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\" d=\"M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4\"></path></svg>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "<svg class=\"w-6 h-6 text-gray-500\" fill=\"none\" stroke=\"currentColor\" viewBox=\"0 0 24 24\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\" d=\"M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4\"></path></svg>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "</div><div class=\"min-w-0 flex-1\"><div class=\"text-sm font-medium text-white truncate\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "</div><div class=\"min-w-0 flex-1\"><div class=\"text-sm font-medium text-white truncate\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var8 string
-				templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(c.Name)
+				var templ_7745c5c3_Var14 string
+				templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs(c.Name)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/merge.templ`, Line: 98, Col: 67}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/merge.templ`, Line: 99, Col: 67}
 				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "</div><div class=\"text-xs text-gray-500 truncate font-mono\">")
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var9 string
-				templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(c.Path)
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/merge.templ`, Line: 99, Col: 68}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "</div><div class=\"text-xs text-gray-500 truncate font-mono\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "</div></div></div></div>")
+				var templ_7745c5c3_Var15 string
+				templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(c.Path)
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/merge.templ`, Line: 100, Col: 68}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "</div></div></div></div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -222,42 +301,133 @@ func DeleteDialog(modelID int64, modelName string) templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var10 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var10 == nil {
-			templ_7745c5c3_Var10 = templ.NopComponent
+		templ_7745c5c3_Var16 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var16 == nil {
+			templ_7745c5c3_Var16 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "<div id=\"delete-dialog\" class=\"hidden fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4\"><div class=\"bg-gray-800 rounded-xl w-full max-w-md\" onclick=\"event.stopPropagation()\"><!-- Header --><div class=\"flex items-center justify-between p-4 border-b border-gray-700\"><h2 class=\"text-lg font-semibold text-red-400\">Delete model</h2><button id=\"delete-close-btn\" onclick=\"document.getElementById('delete-dialog').classList.add('hidden')\" class=\"text-gray-400 hover:text-white text-xl\">&times;</button></div><!-- Body --><div class=\"p-4 space-y-4\"><div class=\"bg-red-900/20 border border-red-600/30 rounded-lg p-3\"><p class=\"text-sm text-red-300\">This will permanently delete <strong class=\"text-white\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "<div id=\"delete-dialog\" class=\"hidden fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4\"><div class=\"bg-gray-800 rounded-xl w-full max-w-md\" onclick=\"event.stopPropagation()\"><!-- Header --><div class=\"flex items-center justify-between p-4 border-b border-gray-700\"><h2 class=\"text-lg font-semibold text-red-400\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var11 string
-		templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(modelName)
+		var templ_7745c5c3_Var17 string
+		templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(i18n.T(ctx, "merge.delete_title"))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/merge.templ`, Line: 126, Col: 73}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/merge.templ`, Line: 116, Col: 86}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "</strong> and all its files from disk. This action <strong>cannot be undone</strong>.</p></div><!-- Buttons --><div id=\"delete-actions\" class=\"flex gap-3\"><button onclick=\"document.getElementById('delete-dialog').classList.add('hidden')\" class=\"flex-1 bg-gray-600 hover:bg-gray-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors\">Cancel</button> ")
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templ.RenderScriptItems(ctx, templ_7745c5c3_Buffer, deleteConfirm(modelID))
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "</h2><button id=\"delete-close-btn\" onclick=\"document.getElementById('delete-dialog').classList.add('hidden')\" class=\"text-gray-400 hover:text-white text-xl\">&times;</button></div><!-- Body --><div class=\"p-4 space-y-4\"><div class=\"bg-red-900/20 border border-red-600/30 rounded-lg p-3\"><p class=\"text-sm text-red-300\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "<button onclick=\"")
+		var templ_7745c5c3_Var18 string
+		templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs(i18n.T(ctx, "merge.delete_warning_pre"))
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/merge.templ`, Line: 127, Col: 47}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var12 templ.ComponentScript = deleteConfirm(modelID)
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var12.Call)
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "<strong class=\"text-white\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "\" class=\"flex-1 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors\">Delete permanently</button></div><!-- Spinner --><div id=\"delete-spinner\" class=\"hidden flex flex-col items-center gap-3 py-4\"><svg class=\"animate-spin h-8 w-8 text-red-400\" xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 24 24\"><circle class=\"opacity-25\" cx=\"12\" cy=\"12\" r=\"10\" stroke=\"currentColor\" stroke-width=\"4\"></circle> <path class=\"opacity-75\" fill=\"currentColor\" d=\"M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z\"></path></svg><p class=\"text-sm text-gray-400\">Deleting model and files from disk...</p></div></div></div></div><script>\n\t\t(function() {\n\t\t\tvar dialog = document.getElementById('delete-dialog');\n\t\t\tif (!dialog) return;\n\t\t\tdialog.addEventListener('click', function(e) {\n\t\t\t\tif (e.target === dialog) dialog.classList.add('hidden');\n\t\t\t});\n\t\t})();\n\t</script>")
+		var templ_7745c5c3_Var19 string
+		templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(modelName)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/merge.templ`, Line: 127, Col: 87}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "</strong>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var20 string
+		templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(i18n.T(ctx, "merge.delete_warning_post"))
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/merge.templ`, Line: 127, Col: 140}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "<strong>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var21 string
+		templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinStringErrs(i18n.T(ctx, "merge.delete_warning_bold"))
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/merge.templ`, Line: 127, Col: 192}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "</strong>.</p></div><!-- Buttons --><div id=\"delete-actions\" class=\"flex gap-3\"><button onclick=\"document.getElementById('delete-dialog').classList.add('hidden')\" class=\"flex-1 bg-gray-600 hover:bg-gray-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var22 string
+		templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.JoinStringErrs(i18n.T(ctx, "merge.cancel"))
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/merge.templ`, Line: 136, Col: 35}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var22))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "</button> ")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templ.RenderScriptItems(ctx, templ_7745c5c3_Buffer, deleteConfirm(modelID, i18n.T(ctx, "merge.delete_failed"), i18n.T(ctx, "merge.network_error")))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "<button onclick=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var23 templ.ComponentScript = deleteConfirm(modelID, i18n.T(ctx, "merge.delete_failed"), i18n.T(ctx, "merge.network_error"))
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var23.Call)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "\" class=\"flex-1 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var24 string
+		templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.JoinStringErrs(i18n.T(ctx, "merge.delete_permanently"))
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/merge.templ`, Line: 142, Col: 47}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var24))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "</button></div><!-- Spinner --><div id=\"delete-spinner\" class=\"hidden flex flex-col items-center gap-3 py-4\"><svg class=\"animate-spin h-8 w-8 text-red-400\" xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 24 24\"><circle class=\"opacity-25\" cx=\"12\" cy=\"12\" r=\"10\" stroke=\"currentColor\" stroke-width=\"4\"></circle> <path class=\"opacity-75\" fill=\"currentColor\" d=\"M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z\"></path></svg><p class=\"text-sm text-gray-400\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var25 string
+		templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.JoinStringErrs(i18n.T(ctx, "merge.deleting"))
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/merge.templ`, Line: 151, Col: 69}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var25))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, "</p></div></div></div></div><script>\n\t\t(function() {\n\t\t\tvar dialog = document.getElementById('delete-dialog');\n\t\t\tif (!dialog) return;\n\t\t\tdialog.addEventListener('click', function(e) {\n\t\t\t\tif (e.target === dialog) dialog.classList.add('hidden');\n\t\t\t});\n\t\t})();\n\t</script>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -265,10 +435,10 @@ func DeleteDialog(modelID int64, modelName string) templ.Component {
 	})
 }
 
-func deleteConfirm(modelID int64) templ.ComponentScript {
+func deleteConfirm(modelID int64, msgFailed string, msgNetwork string) templ.ComponentScript {
 	return templ.ComponentScript{
-		Name: `__templ_deleteConfirm_30d7`,
-		Function: `function __templ_deleteConfirm_30d7(modelID){var actions = document.getElementById('delete-actions');
+		Name: `__templ_deleteConfirm_9a57`,
+		Function: `function __templ_deleteConfirm_9a57(modelID, msgFailed, msgNetwork){var actions = document.getElementById('delete-actions');
 	var spinner = document.getElementById('delete-spinner');
 	var closeBtn = document.getElementById('delete-close-btn');
 	if (actions) actions.classList.add('hidden');
@@ -285,25 +455,25 @@ func deleteConfirm(modelID int64) templ.ComponentScript {
 				if (actions) actions.classList.remove('hidden');
 				if (spinner) spinner.classList.add('hidden');
 				if (closeBtn) closeBtn.classList.remove('hidden');
-				alert("Delete failed: " + t);
+				alert(msgFailed + t);
 			});
 		}
 	}).catch(function() {
 		if (actions) actions.classList.remove('hidden');
 		if (spinner) spinner.classList.add('hidden');
 		if (closeBtn) closeBtn.classList.remove('hidden');
-		alert("Network error. Please try again.");
+		alert(msgNetwork);
 	});
 }`,
-		Call:       templ.SafeScript(`__templ_deleteConfirm_30d7`, modelID),
-		CallInline: templ.SafeScriptInline(`__templ_deleteConfirm_30d7`, modelID),
+		Call:       templ.SafeScript(`__templ_deleteConfirm_9a57`, modelID, msgFailed, msgNetwork),
+		CallInline: templ.SafeScriptInline(`__templ_deleteConfirm_9a57`, modelID, msgFailed, msgNetwork),
 	}
 }
 
-func mergeConfirm(targetID int64, sourceID int64, sourceName string) templ.ComponentScript {
+func mergeConfirm(targetID int64, sourceID int64, sourceName string, confirmMsg string, failedMsg string) templ.ComponentScript {
 	return templ.ComponentScript{
-		Name: `__templ_mergeConfirm_3fd4`,
-		Function: `function __templ_mergeConfirm_3fd4(targetID, sourceID, sourceName){if (confirm("Merge \"" + sourceName + "\" into this model?\n\nThis will move all files and tags, then delete the source model. This action cannot be undone.")) {
+		Name: `__templ_mergeConfirm_fc23`,
+		Function: `function __templ_mergeConfirm_fc23(targetID, sourceID, sourceName, confirmMsg, failedMsg){if (confirm(confirmMsg)) {
 		fetch("/api/models/" + targetID + "/merge", {
 			method: "POST",
 			headers: {"Content-Type": "application/x-www-form-urlencoded"},
@@ -317,13 +487,13 @@ func mergeConfirm(targetID int64, sourceID int64, sourceName string) templ.Compo
 					window.location.reload();
 				}
 			} else {
-				resp.text().then(function(t) { alert("Merge failed: " + t); });
+				resp.text().then(function(t) { alert(failedMsg + t); });
 			}
 		});
 	}
 }`,
-		Call:       templ.SafeScript(`__templ_mergeConfirm_3fd4`, targetID, sourceID, sourceName),
-		CallInline: templ.SafeScriptInline(`__templ_mergeConfirm_3fd4`, targetID, sourceID, sourceName),
+		Call:       templ.SafeScript(`__templ_mergeConfirm_fc23`, targetID, sourceID, sourceName, confirmMsg, failedMsg),
+		CallInline: templ.SafeScriptInline(`__templ_mergeConfirm_fc23`, targetID, sourceID, sourceName, confirmMsg, failedMsg),
 	}
 }
 

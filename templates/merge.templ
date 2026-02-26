@@ -2,6 +2,7 @@ package templates
 
 import (
 	"fmt"
+	"3dmodels/internal/i18n"
 	"3dmodels/internal/models"
 )
 
@@ -14,7 +15,7 @@ templ MergeButton(modelID int64) {
 			<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path>
 			</svg>
-			Merge with another model
+			{ i18n.T(ctx, "merge.merge_button") }
 		</button>
 		<button
 			onclick="document.getElementById('delete-dialog').classList.remove('hidden')"
@@ -23,7 +24,7 @@ templ MergeButton(modelID int64) {
 			<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
 			</svg>
-			Delete model
+			{ i18n.T(ctx, "merge.delete_button") }
 		</button>
 	</div>
 	@MergeDialog(modelID)
@@ -37,7 +38,7 @@ templ MergeDialog(modelID int64) {
 		<div class="bg-gray-800 rounded-xl w-full max-w-lg max-h-[80vh] flex flex-col" onclick="event.stopPropagation()">
 			<!-- Header -->
 			<div class="flex items-center justify-between p-4 border-b border-gray-700">
-				<h2 class="text-lg font-semibold text-white">Merge with another model</h2>
+				<h2 class="text-lg font-semibold text-white">{ i18n.T(ctx, "merge.merge_title") }</h2>
 				<button
 					onclick="document.getElementById('merge-dialog').classList.add('hidden')"
 					class="text-gray-400 hover:text-white text-xl"
@@ -48,7 +49,7 @@ templ MergeDialog(modelID int64) {
 				<input
 					type="text"
 					name="q"
-					placeholder="Search models..."
+					placeholder={ i18n.T(ctx, "merge.search_models") }
 					autocomplete="off"
 					hx-get={ fmt.Sprintf("/api/models/%d/merge-candidates", modelID) }
 					hx-trigger="keyup changed delay:300ms, load"
@@ -59,7 +60,7 @@ templ MergeDialog(modelID int64) {
 			</div>
 			<!-- Results -->
 			<div id="merge-candidates" class="overflow-y-auto flex-1 p-2">
-				<div class="text-center text-gray-500 text-sm py-8">Type to search for models...</div>
+				<div class="text-center text-gray-500 text-sm py-8">{ i18n.T(ctx, "merge.type_to_search") }</div>
 			</div>
 		</div>
 	</div>
@@ -74,11 +75,11 @@ templ MergeDialog(modelID int64) {
 
 templ MergeCandidates(candidates []models.Model3D, targetID int64) {
 	if len(candidates) == 0 {
-		<div class="text-center text-gray-500 text-sm py-8">No models found</div>
+		<div class="text-center text-gray-500 text-sm py-8">{ i18n.T(ctx, "merge.no_models_found") }</div>
 	} else {
 		for _, c := range candidates {
 			<div class="merge-candidate p-3 rounded-lg hover:bg-gray-700 transition-colors cursor-pointer"
-				onclick={ mergeConfirm(targetID, c.ID, c.Name) }
+				onclick={ mergeConfirm(targetID, c.ID, c.Name, i18n.T(ctx, "merge.confirm", c.Name), i18n.T(ctx, "merge.merge_failed")) }
 			>
 				<div class="flex items-center gap-3">
 					<div class="w-12 h-12 rounded-lg bg-gray-700 flex-shrink-0 overflow-hidden flex items-center justify-center">
@@ -112,7 +113,7 @@ templ DeleteDialog(modelID int64, modelName string) {
 		<div class="bg-gray-800 rounded-xl w-full max-w-md" onclick="event.stopPropagation()">
 			<!-- Header -->
 			<div class="flex items-center justify-between p-4 border-b border-gray-700">
-				<h2 class="text-lg font-semibold text-red-400">Delete model</h2>
+				<h2 class="text-lg font-semibold text-red-400">{ i18n.T(ctx, "merge.delete_title") }</h2>
 				<button
 					id="delete-close-btn"
 					onclick="document.getElementById('delete-dialog').classList.add('hidden')"
@@ -123,7 +124,7 @@ templ DeleteDialog(modelID int64, modelName string) {
 			<div class="p-4 space-y-4">
 				<div class="bg-red-900/20 border border-red-600/30 rounded-lg p-3">
 					<p class="text-sm text-red-300">
-						This will permanently delete <strong class="text-white">{ modelName }</strong> and all its files from disk. This action <strong>cannot be undone</strong>.
+						{ i18n.T(ctx, "merge.delete_warning_pre") }<strong class="text-white">{ modelName }</strong>{ i18n.T(ctx, "merge.delete_warning_post") }<strong>{ i18n.T(ctx, "merge.delete_warning_bold") }</strong>.
 					</p>
 				</div>
 				<!-- Buttons -->
@@ -132,13 +133,13 @@ templ DeleteDialog(modelID int64, modelName string) {
 						onclick="document.getElementById('delete-dialog').classList.add('hidden')"
 						class="flex-1 bg-gray-600 hover:bg-gray-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
 					>
-						Cancel
+						{ i18n.T(ctx, "merge.cancel") }
 					</button>
 					<button
-						onclick={ deleteConfirm(modelID) }
+						onclick={ deleteConfirm(modelID, i18n.T(ctx, "merge.delete_failed"), i18n.T(ctx, "merge.network_error")) }
 						class="flex-1 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
 					>
-						Delete permanently
+						{ i18n.T(ctx, "merge.delete_permanently") }
 					</button>
 				</div>
 				<!-- Spinner -->
@@ -147,7 +148,7 @@ templ DeleteDialog(modelID int64, modelName string) {
 						<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
 						<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
 					</svg>
-					<p class="text-sm text-gray-400">Deleting model and files from disk...</p>
+					<p class="text-sm text-gray-400">{ i18n.T(ctx, "merge.deleting") }</p>
 				</div>
 			</div>
 		</div>
@@ -163,7 +164,7 @@ templ DeleteDialog(modelID int64, modelName string) {
 	</script>
 }
 
-script deleteConfirm(modelID int64) {
+script deleteConfirm(modelID int64, msgFailed string, msgNetwork string) {
 	var actions = document.getElementById('delete-actions');
 	var spinner = document.getElementById('delete-spinner');
 	var closeBtn = document.getElementById('delete-close-btn');
@@ -181,19 +182,19 @@ script deleteConfirm(modelID int64) {
 				if (actions) actions.classList.remove('hidden');
 				if (spinner) spinner.classList.add('hidden');
 				if (closeBtn) closeBtn.classList.remove('hidden');
-				alert("Delete failed: " + t);
+				alert(msgFailed + t);
 			});
 		}
 	}).catch(function() {
 		if (actions) actions.classList.remove('hidden');
 		if (spinner) spinner.classList.add('hidden');
 		if (closeBtn) closeBtn.classList.remove('hidden');
-		alert("Network error. Please try again.");
+		alert(msgNetwork);
 	});
 }
 
-script mergeConfirm(targetID int64, sourceID int64, sourceName string) {
-	if (confirm("Merge \"" + sourceName + "\" into this model?\n\nThis will move all files and tags, then delete the source model. This action cannot be undone.")) {
+script mergeConfirm(targetID int64, sourceID int64, sourceName string, confirmMsg string, failedMsg string) {
+	if (confirm(confirmMsg)) {
 		fetch("/api/models/" + targetID + "/merge", {
 			method: "POST",
 			headers: {"Content-Type": "application/x-www-form-urlencoded"},
@@ -207,7 +208,7 @@ script mergeConfirm(targetID int64, sourceID int64, sourceName string) {
 					window.location.reload();
 				}
 			} else {
-				resp.text().then(function(t) { alert("Merge failed: " + t); });
+				resp.text().then(function(t) { alert(failedMsg + t); });
 			}
 		});
 	}

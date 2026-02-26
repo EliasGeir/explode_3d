@@ -2,6 +2,7 @@ package templates
 
 import (
 	"fmt"
+	"3dmodels/internal/i18n"
 	"3dmodels/internal/models"
 )
 
@@ -14,8 +15,8 @@ templ FeedbackButton() {
 		hx-swap="innerHTML"
 		hx-on::after-request="document.getElementById('feedback-overlay').classList.remove('hidden')"
 		class="fixed bottom-6 right-6 z-50 w-14 h-14 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full shadow-lg flex items-center justify-center transition-all hover:scale-110 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-gray-900"
-		title="Invia feedback"
-		aria-label="Invia feedback"
+		title={ i18n.T(ctx, "feedback.send_feedback") }
+		aria-label={ i18n.T(ctx, "feedback.send_feedback") }
 	>
 		<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 			<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path>
@@ -40,11 +41,11 @@ templ FeedbackModalContent(categories []models.FeedbackCategory) {
 		<div class="bg-gray-800 border border-gray-700 rounded-xl shadow-2xl w-full max-w-md mx-4 pointer-events-auto">
 			<!-- Header -->
 			<div class="flex items-center justify-between p-5 border-b border-gray-700">
-				<h2 class="text-lg font-semibold text-white">Invia Feedback</h2>
+				<h2 class="text-lg font-semibold text-white">{ i18n.T(ctx, "feedback.title") }</h2>
 				<button
 					onclick="closeFeedbackModal()"
 					class="text-gray-400 hover:text-white transition-colors"
-					aria-label="Chiudi"
+					aria-label={ i18n.T(ctx, "feedback.close") }
 				>
 					<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
@@ -68,7 +69,7 @@ templ FeedbackForm(categories []models.FeedbackCategory) {
 	>
 		<!-- Categoria -->
 		<div>
-			<label class="block text-sm font-medium text-gray-300 mb-1">Categoria</label>
+			<label class="block text-sm font-medium text-gray-300 mb-1">{ i18n.T(ctx, "feedback.category") }</label>
 			<div class="flex flex-wrap gap-2" id="feedback-categories">
 				for _, cat := range categories {
 					<label class="cursor-pointer feedback-cat-label" data-color={ cat.Color }>
@@ -128,25 +129,25 @@ templ FeedbackForm(categories []models.FeedbackCategory) {
 		</script>
 		<!-- Titolo -->
 		<div>
-			<label class="block text-sm font-medium text-gray-300 mb-1">Titolo</label>
+			<label class="block text-sm font-medium text-gray-300 mb-1">{ i18n.T(ctx, "feedback.feedback_title") }</label>
 			<input
 				type="text"
 				name="title"
 				required
 				maxlength="200"
-				placeholder="Breve descrizione"
+				placeholder={ i18n.T(ctx, "feedback.title_placeholder") }
 				class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
 			/>
 		</div>
 		<!-- Messaggio -->
 		<div>
-			<label class="block text-sm font-medium text-gray-300 mb-1">Messaggio</label>
+			<label class="block text-sm font-medium text-gray-300 mb-1">{ i18n.T(ctx, "feedback.message") }</label>
 			<textarea
 				name="message"
 				required
 				rows="4"
 				maxlength="2000"
-				placeholder="Descrivi il problema o il suggerimento..."
+				placeholder={ i18n.T(ctx, "feedback.message_placeholder") }
 				class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
 			></textarea>
 		</div>
@@ -157,13 +158,13 @@ templ FeedbackForm(categories []models.FeedbackCategory) {
 				onclick="closeFeedbackModal()"
 				class="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors"
 			>
-				Annulla
+				{ i18n.T(ctx, "feedback.cancel") }
 			</button>
 			<button
 				type="submit"
 				class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors"
 			>
-				Invia
+				{ i18n.T(ctx, "feedback.submit") }
 			</button>
 		</div>
 	</form>
@@ -176,13 +177,13 @@ templ FeedbackSuccess() {
 				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
 			</svg>
 		</div>
-		<p class="text-white font-medium">Feedback inviato!</p>
-		<p class="text-sm text-gray-400">Grazie per il tuo contributo.</p>
+		<p class="text-white font-medium">{ i18n.T(ctx, "feedback.success") }</p>
+		<p class="text-sm text-gray-400">{ i18n.T(ctx, "feedback.success_desc") }</p>
 		<button
 			onclick="closeFeedbackModal()"
 			class="mt-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors"
 		>
-			Chiudi
+			{ i18n.T(ctx, "feedback.close_btn") }
 		</button>
 	</div>
 }
@@ -190,16 +191,16 @@ templ FeedbackSuccess() {
 // --- Admin page ---
 
 templ FeedbackPage(feedbacks []models.Feedback, categories []models.FeedbackCategory, username string, isAdmin bool) {
-	@LayoutWithUser("Feedback", username, isAdmin, nil, nil, feedbackPageContent(feedbacks, categories))
+	@LayoutWithUser(i18n.T(ctx, "nav.feedback"), username, isAdmin, nil, nil, feedbackPageContent(feedbacks, categories))
 }
 
 templ feedbackPageContent(feedbacks []models.Feedback, categories []models.FeedbackCategory) {
 	<div class="space-y-8">
 		<!-- Header -->
 		<div class="flex items-center justify-between">
-			<h1 class="text-2xl font-bold">Feedback ricevuti</h1>
+			<h1 class="text-2xl font-bold">{ i18n.T(ctx, "feedback.admin_title") }</h1>
 			<div class="flex items-center gap-2">
-				<span class="text-sm text-gray-400">{ fmt.Sprintf("%d totale", len(feedbacks)) }</span>
+				<span class="text-sm text-gray-400">{ i18n.T(ctx, "feedback.total", len(feedbacks)) }</span>
 			</div>
 		</div>
 
@@ -211,28 +212,28 @@ templ feedbackPageContent(feedbacks []models.Feedback, categories []models.Feedb
 				hx-target="#feedback-list"
 				hx-swap="innerHTML"
 				class="px-3 py-1.5 rounded-full text-sm font-medium bg-gray-700 text-gray-300 hover:bg-gray-600 transition-colors"
-			>Tutti</a>
+			>{ i18n.T(ctx, "feedback.filter_all") }</a>
 			<a
 				href="/feedback?status=pending"
 				hx-get="/api/feedback?status=pending"
 				hx-target="#feedback-list"
 				hx-swap="innerHTML"
 				class="px-3 py-1.5 rounded-full text-sm font-medium bg-yellow-900 text-yellow-300 hover:bg-yellow-800 transition-colors"
-			>In attesa</a>
+			>{ i18n.T(ctx, "feedback.filter_pending") }</a>
 			<a
 				href="/feedback?status=read"
 				hx-get="/api/feedback?status=read"
 				hx-target="#feedback-list"
 				hx-swap="innerHTML"
 				class="px-3 py-1.5 rounded-full text-sm font-medium bg-blue-900 text-blue-300 hover:bg-blue-800 transition-colors"
-			>Letti</a>
+			>{ i18n.T(ctx, "feedback.filter_read") }</a>
 			<a
 				href="/feedback?status=resolved"
 				hx-get="/api/feedback?status=resolved"
 				hx-target="#feedback-list"
 				hx-swap="innerHTML"
 				class="px-3 py-1.5 rounded-full text-sm font-medium bg-green-900 text-green-300 hover:bg-green-800 transition-colors"
-			>Risolti</a>
+			>{ i18n.T(ctx, "feedback.filter_resolved") }</a>
 		</div>
 
 		<!-- Lista feedback -->
@@ -242,10 +243,10 @@ templ feedbackPageContent(feedbacks []models.Feedback, categories []models.Feedb
 
 		<!-- Gestione categorie -->
 		<div class="border-t border-gray-700 pt-8">
-			<h2 class="text-xl font-bold mb-4">Gestione Categorie</h2>
+			<h2 class="text-xl font-bold mb-4">{ i18n.T(ctx, "feedback.manage_categories") }</h2>
 			<!-- Aggiungi categoria -->
 			<div class="bg-gray-800 rounded-lg p-4 mb-4">
-				<h3 class="text-sm font-medium text-gray-300 mb-3">Nuova Categoria</h3>
+				<h3 class="text-sm font-medium text-gray-300 mb-3">{ i18n.T(ctx, "feedback.new_category") }</h3>
 				<form
 					hx-post="/api/feedback/categories"
 					hx-target="#feedback-category-list"
@@ -253,23 +254,23 @@ templ feedbackPageContent(feedbacks []models.Feedback, categories []models.Feedb
 					class="flex gap-3 items-end flex-wrap"
 				>
 					<div class="flex-1 min-w-32">
-						<label class="block text-xs text-gray-400 mb-1">Nome</label>
-						<input type="text" name="name" required placeholder="Es. Miglioramento" class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"/>
+						<label class="block text-xs text-gray-400 mb-1">{ i18n.T(ctx, "feedback.cat_name") }</label>
+						<input type="text" name="name" required placeholder={ i18n.T(ctx, "feedback.cat_name_placeholder") } class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"/>
 					</div>
 					<div>
-						<label class="block text-xs text-gray-400 mb-1">Icona</label>
+						<label class="block text-xs text-gray-400 mb-1">{ i18n.T(ctx, "feedback.cat_icon") }</label>
 						<input type="text" name="icon" value="💬" maxlength="4" class="w-16 bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 text-center"/>
 					</div>
 					<div class="flex items-center gap-2">
-						<label class="text-xs text-gray-400">Colore</label>
+						<label class="text-xs text-gray-400">{ i18n.T(ctx, "feedback.cat_color") }</label>
 						<input type="color" name="color" value="#6366f1" class="w-9 h-9 rounded cursor-pointer bg-transparent border-0"/>
 					</div>
 					<div class="w-20">
-						<label class="block text-xs text-gray-400 mb-1">Ordine</label>
+						<label class="block text-xs text-gray-400 mb-1">{ i18n.T(ctx, "feedback.cat_order") }</label>
 						<input type="number" name="sort_order" value="10" min="0" class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"/>
 					</div>
 					<button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
-						Aggiungi
+						{ i18n.T(ctx, "feedback.cat_add") }
 					</button>
 				</form>
 			</div>
@@ -286,7 +287,7 @@ templ FeedbackList(feedbacks []models.Feedback) {
 			<svg class="w-12 h-12 mx-auto mb-3 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path>
 			</svg>
-			<p>Nessun feedback trovato.</p>
+			<p>{ i18n.T(ctx, "feedback.no_feedback") }</p>
 		</div>
 	} else {
 		<div class="space-y-3">
@@ -322,17 +323,17 @@ templ FeedbackList(feedbacks []models.Feedback) {
 								name="status"
 								class="bg-gray-700 border border-gray-600 rounded-lg px-2 py-1 text-xs text-white focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
 							>
-								<option value="pending" selected?={ f.Status == "pending" }>In attesa</option>
-								<option value="read" selected?={ f.Status == "read" }>Letto</option>
-								<option value="resolved" selected?={ f.Status == "resolved" }>Risolto</option>
+								<option value="pending" selected?={ f.Status == "pending" }>{ i18n.T(ctx, "feedback.status_pending") }</option>
+								<option value="read" selected?={ f.Status == "read" }>{ i18n.T(ctx, "feedback.status_read") }</option>
+								<option value="resolved" selected?={ f.Status == "resolved" }>{ i18n.T(ctx, "feedback.status_resolved") }</option>
 							</select>
 							<button
 								hx-delete={ fmt.Sprintf("/api/feedback/%d", f.ID) }
 								hx-target={ fmt.Sprintf("#feedback-%d", f.ID) }
 								hx-swap="outerHTML"
-								hx-confirm="Eliminare questo feedback?"
+								hx-confirm={ i18n.T(ctx, "feedback.delete_confirm") }
 								class="text-red-400 hover:text-red-300 transition-colors p-1"
-								aria-label="Elimina"
+								aria-label={ i18n.T(ctx, "common.delete") }
 							>
 								<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
@@ -349,11 +350,11 @@ templ FeedbackList(feedbacks []models.Feedback) {
 templ feedbackStatusBadge(status string) {
 	switch status {
 		case "pending":
-			<span class="px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-900 text-yellow-300">In attesa</span>
+			<span class="px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-900 text-yellow-300">{ i18n.T(ctx, "feedback.status_pending") }</span>
 		case "read":
-			<span class="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-900 text-blue-300">Letto</span>
+			<span class="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-900 text-blue-300">{ i18n.T(ctx, "feedback.status_read") }</span>
 		case "resolved":
-			<span class="px-2 py-0.5 rounded-full text-xs font-medium bg-green-900 text-green-300">Risolto</span>
+			<span class="px-2 py-0.5 rounded-full text-xs font-medium bg-green-900 text-green-300">{ i18n.T(ctx, "feedback.status_resolved") }</span>
 		default:
 			<span class="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-700 text-gray-300">{ status }</span>
 	}
@@ -370,21 +371,21 @@ templ FeedbackCategoryList(categories []models.FeedbackCategory) {
 						style={ fmt.Sprintf("background-color: %s", c.Color) }
 					></span>
 					<span class="font-medium text-white text-sm">{ c.Name }</span>
-					<span class="text-xs text-gray-500">ordine: { fmt.Sprintf("%d", c.SortOrder) }</span>
+					<span class="text-xs text-gray-500">{ i18n.T(ctx, "feedback.cat_order_label") } { fmt.Sprintf("%d", c.SortOrder) }</span>
 				</div>
 				<button
 					hx-delete={ fmt.Sprintf("/api/feedback/categories/%d", c.ID) }
 					hx-target="#feedback-category-list"
 					hx-swap="innerHTML"
-					hx-confirm={ fmt.Sprintf("Eliminare la categoria \"%s\"?", c.Name) }
+					hx-confirm={ i18n.T(ctx, "feedback.cat_delete_confirm", c.Name) }
 					class="text-red-400 hover:text-red-300 text-sm px-2 py-1 transition-colors"
 				>
-					Elimina
+					{ i18n.T(ctx, "feedback.cat_delete") }
 				</button>
 			</div>
 		}
 		if len(categories) == 0 {
-			<p class="text-sm text-gray-400 py-4 text-center">Nessuna categoria.</p>
+			<p class="text-sm text-gray-400 py-4 text-center">{ i18n.T(ctx, "feedback.no_categories") }</p>
 		}
 	</div>
 }

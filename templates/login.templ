@@ -1,5 +1,7 @@
 package templates
 
+import "3dmodels/internal/i18n"
+
 templ LoginPage(errMsg string) {
 	@LoginLayout("Login", loginForm(errMsg))
 }
@@ -7,8 +9,22 @@ templ LoginPage(errMsg string) {
 templ loginForm(errMsg string) {
 	<div class="min-h-screen flex items-center justify-center">
 		<div class="bg-gray-800 border border-gray-700 rounded-lg p-8 w-full max-w-md">
-			<h1 class="text-2xl font-bold text-white mb-6 text-center">3D Models</h1>
-			<h2 class="text-lg text-gray-300 mb-6 text-center">Sign In</h2>
+			<!-- Language switch -->
+			<div class="flex justify-end mb-4">
+				<div class="flex items-center gap-1 text-xs">
+					if i18n.GetLocale(ctx) == i18n.LangIT {
+						<span class="text-white font-bold">IT</span>
+						<span class="text-gray-500">|</span>
+						<a href="/set-lang?lang=en" class="text-gray-400 hover:text-white transition-colors">EN</a>
+					} else {
+						<a href="/set-lang?lang=it" class="text-gray-400 hover:text-white transition-colors">IT</a>
+						<span class="text-gray-500">|</span>
+						<span class="text-white font-bold">EN</span>
+					}
+				</div>
+			</div>
+			<h1 class="text-2xl font-bold text-white mb-6 text-center">{ i18n.T(ctx, "auth.app_title") }</h1>
+			<h2 class="text-lg text-gray-300 mb-6 text-center">{ i18n.T(ctx, "auth.sign_in") }</h2>
 			if errMsg != "" {
 				<div class="bg-red-900/50 border border-red-700 text-red-300 px-4 py-3 rounded-lg mb-4 text-sm">
 					{ errMsg }
@@ -16,7 +32,7 @@ templ loginForm(errMsg string) {
 			}
 			<form method="POST" action="/login" class="space-y-4">
 				<div>
-					<label for="username" class="block text-sm font-medium text-gray-300 mb-1">Username</label>
+					<label for="username" class="block text-sm font-medium text-gray-300 mb-1">{ i18n.T(ctx, "auth.username") }</label>
 					<input
 						type="text"
 						id="username"
@@ -27,7 +43,7 @@ templ loginForm(errMsg string) {
 					/>
 				</div>
 				<div>
-					<label for="password" class="block text-sm font-medium text-gray-300 mb-1">Password</label>
+					<label for="password" class="block text-sm font-medium text-gray-300 mb-1">{ i18n.T(ctx, "auth.password") }</label>
 					<input
 						type="password"
 						id="password"
@@ -40,7 +56,7 @@ templ loginForm(errMsg string) {
 					type="submit"
 					class="w-full bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
 				>
-					Sign In
+					{ i18n.T(ctx, "auth.sign_in_btn") }
 				</button>
 			</form>
 		</div>
@@ -54,9 +70,23 @@ templ SetupPage(errMsg string) {
 templ setupForm(errMsg string) {
 	<div class="min-h-screen flex items-center justify-center">
 		<div class="bg-gray-800 border border-gray-700 rounded-lg p-8 w-full max-w-md">
-			<h1 class="text-2xl font-bold text-white mb-2 text-center">3D Models</h1>
-			<h2 class="text-lg text-gray-300 mb-2 text-center">Initial Setup</h2>
-			<p class="text-sm text-gray-400 mb-6 text-center">Create the first administrator account</p>
+			<!-- Language switch -->
+			<div class="flex justify-end mb-4">
+				<div class="flex items-center gap-1 text-xs">
+					if i18n.GetLocale(ctx) == i18n.LangIT {
+						<span class="text-white font-bold">IT</span>
+						<span class="text-gray-500">|</span>
+						<a href="/set-lang?lang=en" class="text-gray-400 hover:text-white transition-colors">EN</a>
+					} else {
+						<a href="/set-lang?lang=it" class="text-gray-400 hover:text-white transition-colors">IT</a>
+						<span class="text-gray-500">|</span>
+						<span class="text-white font-bold">EN</span>
+					}
+				</div>
+			</div>
+			<h1 class="text-2xl font-bold text-white mb-2 text-center">{ i18n.T(ctx, "auth.app_title") }</h1>
+			<h2 class="text-lg text-gray-300 mb-2 text-center">{ i18n.T(ctx, "auth.setup_title") }</h2>
+			<p class="text-sm text-gray-400 mb-6 text-center">{ i18n.T(ctx, "auth.setup_desc") }</p>
 			if errMsg != "" {
 				<div class="bg-red-900/50 border border-red-700 text-red-300 px-4 py-3 rounded-lg mb-4 text-sm">
 					{ errMsg }
@@ -64,7 +94,7 @@ templ setupForm(errMsg string) {
 			}
 			<form method="POST" action="/setup" class="space-y-4">
 				<div>
-					<label for="username" class="block text-sm font-medium text-gray-300 mb-1">Username</label>
+					<label for="username" class="block text-sm font-medium text-gray-300 mb-1">{ i18n.T(ctx, "auth.username") }</label>
 					<input
 						type="text"
 						id="username"
@@ -75,7 +105,7 @@ templ setupForm(errMsg string) {
 					/>
 				</div>
 				<div>
-					<label for="email" class="block text-sm font-medium text-gray-300 mb-1">Email</label>
+					<label for="email" class="block text-sm font-medium text-gray-300 mb-1">{ i18n.T(ctx, "auth.email") }</label>
 					<input
 						type="email"
 						id="email"
@@ -85,7 +115,7 @@ templ setupForm(errMsg string) {
 					/>
 				</div>
 				<div>
-					<label for="password" class="block text-sm font-medium text-gray-300 mb-1">Password</label>
+					<label for="password" class="block text-sm font-medium text-gray-300 mb-1">{ i18n.T(ctx, "auth.password") }</label>
 					<input
 						type="password"
 						id="password"
@@ -96,7 +126,7 @@ templ setupForm(errMsg string) {
 					/>
 				</div>
 				<div>
-					<label for="confirm_password" class="block text-sm font-medium text-gray-300 mb-1">Confirm Password</label>
+					<label for="confirm_password" class="block text-sm font-medium text-gray-300 mb-1">{ i18n.T(ctx, "auth.confirm_password") }</label>
 					<input
 						type="password"
 						id="confirm_password"
@@ -110,7 +140,7 @@ templ setupForm(errMsg string) {
 					type="submit"
 					class="w-full bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
 				>
-					Create Account
+					{ i18n.T(ctx, "auth.create_account") }
 				</button>
 			</form>
 		</div>

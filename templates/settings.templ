@@ -2,6 +2,7 @@ package templates
 
 import (
 	"fmt"
+	"3dmodels/internal/i18n"
 	"3dmodels/internal/models"
 )
 
@@ -22,12 +23,12 @@ type SettingsData struct {
 }
 
 templ SettingsPage(data SettingsData) {
-	@LayoutWithUser("Settings", data.Username, data.IsAdmin, nil, nil, settingsContent(data))
+	@LayoutWithUser(i18n.T(ctx, "settings.title"), data.Username, data.IsAdmin, nil, nil, settingsContent(data))
 }
 
 templ settingsContent(data SettingsData) {
 	<div class="space-y-6">
-		<h1 class="text-2xl font-bold text-white">Settings</h1>
+		<h1 class="text-2xl font-bold text-white">{ i18n.T(ctx, "settings.title") }</h1>
 
 		<!-- Tabs -->
 		<div class="border-b border-gray-700">
@@ -38,7 +39,7 @@ templ settingsContent(data SettingsData) {
 						templ.KV("border-indigo-500 text-indigo-400", data.ActiveTab == "scanner"),
 						templ.KV("border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-600", data.ActiveTab != "scanner") }
 				>
-					Scanner
+					{ i18n.T(ctx, "settings.tab_scanner") }
 				</a>
 				<a
 					href="/settings?tab=paths"
@@ -46,7 +47,7 @@ templ settingsContent(data SettingsData) {
 						templ.KV("border-indigo-500 text-indigo-400", data.ActiveTab == "paths"),
 						templ.KV("border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-600", data.ActiveTab != "paths") }
 				>
-					Percorsi
+					{ i18n.T(ctx, "settings.tab_paths") }
 				</a>
 				<a
 					href="/settings?tab=users"
@@ -54,7 +55,7 @@ templ settingsContent(data SettingsData) {
 						templ.KV("border-indigo-500 text-indigo-400", data.ActiveTab == "users"),
 						templ.KV("border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-600", data.ActiveTab != "users") }
 				>
-					Utenti
+					{ i18n.T(ctx, "settings.tab_users") }
 				</a>
 			</nav>
 		</div>
@@ -74,24 +75,24 @@ templ scannerTab(data SettingsData) {
 	<div class="space-y-8">
 		<!-- Scanner Section -->
 		<div class="bg-gray-800 border border-gray-700 rounded-lg p-6 space-y-6">
-			<h2 class="text-lg font-semibold text-white">Scanner</h2>
+			<h2 class="text-lg font-semibold text-white">{ i18n.T(ctx, "settings.scanner") }</h2>
 
 			<!-- Status & Force Scan -->
 			<div class="flex items-center justify-between">
 				<div>
 					<p class="text-sm text-gray-400">
 						if data.LastScanAt != "" {
-							Last scan: <span class="text-gray-300">{ data.LastScanAt }</span>
+							{ i18n.T(ctx, "settings.last_scan") } <span class="text-gray-300">{ data.LastScanAt }</span>
 						} else {
-							No scan performed yet
+							{ i18n.T(ctx, "settings.no_scan_yet") }
 						}
 					</p>
 					<p class="text-sm text-gray-400 mt-1">
-						Status:
+						{ i18n.T(ctx, "settings.status") }
 						if data.ScanStatus.Running {
-							<span class="text-yellow-400">Running</span>
+							<span class="text-yellow-400">{ i18n.T(ctx, "settings.running") }</span>
 						} else {
-							<span class="text-green-400">Idle</span>
+							<span class="text-green-400">{ i18n.T(ctx, "settings.idle") }</span>
 						}
 					</p>
 				</div>
@@ -104,14 +105,14 @@ templ scannerTab(data SettingsData) {
 						disabled
 					}
 				>
-					Force Scan Now
+					{ i18n.T(ctx, "settings.force_scan") }
 				</button>
 			</div>
 			<div id="scan-result"></div>
 
 			<!-- Auto Scan Toggle -->
 			<div class="border-t border-gray-700 pt-4">
-				<h3 class="text-sm font-medium text-gray-300 mb-3">Scheduled Scan</h3>
+				<h3 class="text-sm font-medium text-gray-300 mb-3">{ i18n.T(ctx, "settings.scheduled_scan") }</h3>
 				<div class="space-y-4">
 					<label class="flex items-center gap-3 cursor-pointer">
 						<input
@@ -129,11 +130,11 @@ templ scannerTab(data SettingsData) {
 							name="auto_scan_enabled"
 							value="true"
 						/>
-						<span class="text-sm text-gray-300">Enable automatic daily scan</span>
+						<span class="text-sm text-gray-300">{ i18n.T(ctx, "settings.enable_auto_scan") }</span>
 					</label>
 
 					<div class="flex items-center gap-3">
-						<label for="scan-hour-select" class="text-sm text-gray-400">Scan at hour:</label>
+						<label for="scan-hour-select" class="text-sm text-gray-400">{ i18n.T(ctx, "settings.scan_at_hour") }</label>
 						<select
 							id="scan-hour-select"
 							name="scan_schedule_hour"
@@ -164,11 +165,11 @@ templ scannerTab(data SettingsData) {
 
 		<!-- Scanner Depth -->
 		<div class="bg-gray-800 border border-gray-700 rounded-lg p-6 space-y-4">
-			<h2 class="text-lg font-semibold text-white">Scanner Minimum Depth</h2>
+			<h2 class="text-lg font-semibold text-white">{ i18n.T(ctx, "settings.scanner_depth") }</h2>
 			<p class="text-sm text-gray-400">
-				To prevent top-level folders from being misidentified as models, set a minimum depth for scanning. The scanner will only start identifying models at this folder depth or deeper.
+				{ i18n.T(ctx, "settings.scanner_depth_desc") }
 				<br/>
-				(Depth 0 is the root scan folder).
+				{ i18n.T(ctx, "settings.depth_zero_note") }
 			</p>
 			<form
 				hx-put="/api/settings/scanner-depth"
@@ -177,7 +178,7 @@ templ scannerTab(data SettingsData) {
 				class="space-y-3"
 			>
 				<div class="mb-3">
-					<label class="block text-sm font-medium text-gray-300 mb-2">Minimum Depth:</label>
+					<label class="block text-sm font-medium text-gray-300 mb-2">{ i18n.T(ctx, "settings.min_depth") }</label>
 					<input
 						type="number"
 						name="scanner_min_depth"
@@ -186,14 +187,14 @@ templ scannerTab(data SettingsData) {
 						value={ data.ScannerMinDepth }
 						class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
 					/>
-					<p class="text-xs text-gray-400 mt-1">e.g., a value of `2` means scanning starts at the 3rd level of folders.</p>
+					<p class="text-xs text-gray-400 mt-1">{ i18n.T(ctx, "settings.depth_example") }</p>
 				</div>
 				<div class="flex items-center gap-3">
 					<button
 						type="submit"
 						class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
 					>
-						Save
+						{ i18n.T(ctx, "settings.save") }
 					</button>
 					<span id="scanner-depth-status" class="text-sm text-green-400"></span>
 				</div>
@@ -206,9 +207,9 @@ templ pathsTab(data SettingsData) {
 	<div class="space-y-8">
 		<!-- Ignored Folder Names -->
 		<div class="bg-gray-800 border border-gray-700 rounded-lg p-6 space-y-4">
-			<h2 class="text-lg font-semibold text-white">Ignored Folder Names</h2>
+			<h2 class="text-lg font-semibold text-white">{ i18n.T(ctx, "settings.ignored_folders") }</h2>
 			<p class="text-sm text-gray-400">
-				Subdirectories with these names will not be treated as separate models. Instead, their parent directory will be considered the model. Comma-separated, case-insensitive. Numeric sizes like 25mm, 32mm are always matched automatically.
+				{ i18n.T(ctx, "settings.ignored_folders_desc") }
 			</p>
 			<div id="ignored-folders-section">
 				@IgnoredFoldersForm(data.IgnoredFolderNames)
@@ -217,9 +218,9 @@ templ pathsTab(data SettingsData) {
 
 		<!-- Excluded Folders -->
 		<div class="bg-gray-800 border border-gray-700 rounded-lg p-6 space-y-4">
-			<h2 class="text-lg font-semibold text-white">Excluded Folders</h2>
+			<h2 class="text-lg font-semibold text-white">{ i18n.T(ctx, "settings.excluded_folders") }</h2>
 			<p class="text-sm text-gray-400">
-				Folders to exclude from scanning. Enter folder names (case-insensitive) to skip during scanning. Comma-separated.
+				{ i18n.T(ctx, "settings.excluded_folders_desc") }
 			</p>
 			<div id="excluded-folders-section">
 				@ExcludedFoldersForm(data.ExcludedFolders)
@@ -230,7 +231,7 @@ templ pathsTab(data SettingsData) {
 		<div class="bg-gray-800 border border-gray-700 rounded-lg p-6 space-y-4">
 			<details>
 				<summary class="text-lg font-semibold text-white cursor-pointer select-none flex items-center gap-2">
-					Excluded Paths
+					{ i18n.T(ctx, "settings.excluded_paths") }
 					if len(data.ExcludedPaths) > 0 {
 						<span class="text-xs bg-gray-700 text-gray-300 px-2 py-0.5 rounded-full">
 							{ fmt.Sprintf("%d", len(data.ExcludedPaths)) }
@@ -239,7 +240,7 @@ templ pathsTab(data SettingsData) {
 				</summary>
 				<div class="mt-4">
 					<p class="text-sm text-gray-400 mb-3">
-						Full paths excluded from scanning. These are automatically added when you change a model's path or category.
+						{ i18n.T(ctx, "settings.excluded_paths_desc") }
 					</p>
 					<div id="excluded-paths-section">
 						@ExcludedPathsList(data.ExcludedPaths)
@@ -254,7 +255,7 @@ templ usersTab(data SettingsData) {
 	<div class="space-y-8">
 		<!-- User List -->
 		<div class="bg-gray-800 border border-gray-700 rounded-lg p-6 space-y-4">
-			<h2 class="text-lg font-semibold text-white">Users</h2>
+			<h2 class="text-lg font-semibold text-white">{ i18n.T(ctx, "settings.users") }</h2>
 			<div id="users-section">
 				@UsersList(data.Users, data.AllRoles)
 			</div>
@@ -262,7 +263,7 @@ templ usersTab(data SettingsData) {
 
 		<!-- Create User -->
 		<div class="bg-gray-800 border border-gray-700 rounded-lg p-6 space-y-4">
-			<h2 class="text-lg font-semibold text-white">Create New User</h2>
+			<h2 class="text-lg font-semibold text-white">{ i18n.T(ctx, "settings.create_user") }</h2>
 			<div id="create-user-section">
 				@CreateUserForm("")
 			</div>
@@ -272,7 +273,7 @@ templ usersTab(data SettingsData) {
 
 templ UsersList(users []models.User, allRoles []models.Role) {
 	if len(users) == 0 {
-		<p class="text-sm text-gray-500">No users.</p>
+		<p class="text-sm text-gray-500">{ i18n.T(ctx, "settings.no_users") }</p>
 	} else {
 		<div class="space-y-3">
 			for _, u := range users {
@@ -297,9 +298,8 @@ templ UsersList(users []models.User, allRoles []models.Role) {
 											hx-delete={ fmt.Sprintf("/api/settings/users/%d/roles/%d", u.ID, role.ID) }
 											hx-target="#users-section"
 											hx-swap="innerHTML"
-											hx-confirm={ fmt.Sprintf("Rimuovere il ruolo %s da %s?", role.Name, u.Username) }
+											hx-confirm={ i18n.T(ctx, "settings.remove_role_confirm", role.Name, u.Username) }
 											class="ml-0.5 text-current opacity-60 hover:opacity-100 transition-opacity"
-											aria-label="Rimuovi ruolo"
 										>×</button>
 									</span>
 								}
@@ -322,7 +322,7 @@ templ UsersList(users []models.User, allRoles []models.Role) {
 											}
 										</select>
 										<button type="submit" class="text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 px-2 py-0.5 rounded border border-gray-600 transition-colors">
-											+ Aggiungi
+											{ i18n.T(ctx, "settings.add_role") }
 										</button>
 									</form>
 								}
@@ -334,10 +334,10 @@ templ UsersList(users []models.User, allRoles []models.Role) {
 								hx-delete={ fmt.Sprintf("/api/settings/users/%d", u.ID) }
 								hx-target="#users-section"
 								hx-swap="innerHTML"
-								hx-confirm={ fmt.Sprintf("Eliminare l'utente '%s'? Questa azione non può essere annullata.", u.Username) }
+								hx-confirm={ i18n.T(ctx, "settings.delete_user_confirm", u.Username) }
 								class="text-xs text-gray-500 hover:text-red-400 transition-colors px-2 py-1 rounded hover:bg-gray-700 flex-shrink-0"
 							>
-								Elimina
+								{ i18n.T(ctx, "settings.delete_user") }
 							</button>
 						}
 					</div>
@@ -381,7 +381,7 @@ templ CreateUserForm(errMsg string) {
 	>
 		<div class="grid grid-cols-2 gap-4">
 			<div>
-				<label class="block text-sm font-medium text-gray-300 mb-1">Username</label>
+				<label class="block text-sm font-medium text-gray-300 mb-1">{ i18n.T(ctx, "auth.username") }</label>
 				<input
 					type="text"
 					name="username"
@@ -390,7 +390,7 @@ templ CreateUserForm(errMsg string) {
 				/>
 			</div>
 			<div>
-				<label class="block text-sm font-medium text-gray-300 mb-1">Email</label>
+				<label class="block text-sm font-medium text-gray-300 mb-1">{ i18n.T(ctx, "auth.email") }</label>
 				<input
 					type="email"
 					name="email"
@@ -400,7 +400,7 @@ templ CreateUserForm(errMsg string) {
 			</div>
 		</div>
 		<div>
-			<label class="block text-sm font-medium text-gray-300 mb-1">Password</label>
+			<label class="block text-sm font-medium text-gray-300 mb-1">{ i18n.T(ctx, "auth.password") }</label>
 			<input
 				type="password"
 				name="password"
@@ -413,13 +413,13 @@ templ CreateUserForm(errMsg string) {
 			type="submit"
 			class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
 		>
-			Create User
+			{ i18n.T(ctx, "settings.create_user_btn") }
 		</button>
 	</form>
 }
 
 templ CreateUserSuccess() {
-	<div class="text-sm text-green-400 mb-4">User created successfully.</div>
+	<div class="text-sm text-green-400 mb-4">{ i18n.T(ctx, "settings.user_created") }</div>
 	@CreateUserForm("")
 }
 
@@ -440,7 +440,7 @@ templ IgnoredFoldersForm(value string) {
 				type="submit"
 				class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
 			>
-				Save
+				{ i18n.T(ctx, "settings.save") }
 			</button>
 			<span id="ignored-folders-status" class="text-sm text-green-400"></span>
 		</div>
@@ -453,9 +453,9 @@ templ IgnoredFoldersSaved(value string) {
 
 templ IgnoredFolderAdded(name string, alreadyExists bool) {
 	if alreadyExists {
-		<span class="text-sm text-yellow-400">{ "\"" + name + "\" is already in the ignored list" }</span>
+		<span class="text-sm text-yellow-400">{ i18n.T(ctx, "settings.ignored_already", name) }</span>
 	} else {
-		<span class="text-sm text-green-400">{ "\"" + name + "\" added to ignored folders" }</span>
+		<span class="text-sm text-green-400">{ i18n.T(ctx, "settings.ignored_added", name) }</span>
 	}
 }
 
@@ -470,16 +470,16 @@ templ ExcludedFoldersForm(value string) {
 			type="text"
 			name="excluded_folders"
 			value={ value }
-			placeholder="e.g., backups, archives, temp"
+			placeholder={ i18n.T(ctx, "settings.excluded_folders_placeholder") }
 			class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
 		/>
-		<p class="text-xs text-gray-400 mt-1">Comma-separated folder names to exclude from scanning (case-insensitive)</p>
+		<p class="text-xs text-gray-400 mt-1">{ i18n.T(ctx, "settings.excluded_folders_note") }</p>
 		<div class="flex items-center gap-3">
 			<button
 				type="submit"
 				class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
 			>
-				Save Excluded Folders
+				{ i18n.T(ctx, "settings.save_excluded_folders") }
 			</button>
 			<span id="excluded-folders-status" class="text-sm text-green-400"></span>
 		</div>
@@ -491,18 +491,18 @@ templ ExcludedFoldersSaved(value string) {
 }
 
 templ ScannerDepthSaved() {
-	<span class="text-sm text-green-400">Saved.</span>
+	<span class="text-sm text-green-400">{ i18n.T(ctx, "settings.saved") }</span>
 }
 
 templ SettingsSaved() {
 	<div class="text-sm text-green-400 mt-2" hx-swap-oob="true">
-		Settings saved.
+		{ i18n.T(ctx, "settings.settings_saved") }
 	</div>
 }
 
 templ ExcludedPathsList(paths []string) {
 	if len(paths) == 0 {
-		<p class="text-sm text-gray-500">No excluded paths.</p>
+		<p class="text-sm text-gray-500">{ i18n.T(ctx, "settings.no_excluded_paths") }</p>
 	} else {
 		<table class="w-full text-sm">
 			<tbody>
@@ -515,10 +515,10 @@ templ ExcludedPathsList(paths []string) {
 								hx-vals={ fmt.Sprintf(`{"path":"%s"}`, p) }
 								hx-target="#excluded-paths-section"
 								hx-swap="innerHTML"
-								hx-confirm={ fmt.Sprintf("Remove '%s' from excluded paths? It will be rediscovered on next scan.", p) }
+								hx-confirm={ i18n.T(ctx, "settings.remove_confirm", p) }
 								class="opacity-0 group-hover:opacity-100 text-xs text-gray-500 hover:text-red-400 transition-all px-2 py-0.5 rounded hover:bg-gray-700"
 							>
-								remove
+								{ i18n.T(ctx, "settings.remove") }
 							</button>
 						</td>
 					</tr>

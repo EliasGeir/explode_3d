@@ -9,8 +9,8 @@ import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
 import (
+	"3dmodels/internal/i18n"
 	"3dmodels/internal/models"
-	"fmt"
 )
 
 func ScannerStatus(status models.ScanStatus) templ.Component {
@@ -83,9 +83,9 @@ func ScannerStatus(status models.ScanStatus) templ.Component {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var3 string
-				templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d processed, %d new", status.Processed, status.NewModels))
+				templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(i18n.T(ctx, "scanner.processed", status.Processed, status.NewModels))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/scanner_status.templ`, Line: 29, Col: 115}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/scanner_status.templ`, Line: 29, Col: 112}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 				if templ_7745c5c3_Err != nil {
@@ -102,9 +102,9 @@ func ScannerStatus(status models.ScanStatus) templ.Component {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var4 string
-				templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d removed", status.Removed))
+				templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(i18n.T(ctx, "scanner.removed", status.Removed))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/scanner_status.templ`, Line: 32, Col: 85}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/scanner_status.templ`, Line: 32, Col: 90}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 				if templ_7745c5c3_Err != nil {

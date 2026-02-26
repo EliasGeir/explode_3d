@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"sort"
 	"strings"
+	"3dmodels/internal/i18n"
 	"3dmodels/internal/models"
 	"3dmodels/internal/repository"
 )
@@ -164,7 +165,7 @@ func imagesJSON(images []string) string {
 
 templ ModelDetailPage(data ModelDetailData) {
 	<div class="mb-4">
-		<a href={ templ.SafeURL(data.BackURL) } class="text-indigo-400 hover:text-indigo-300 text-sm">&larr; Back to models</a>
+		<a href={ templ.SafeURL(data.BackURL) } class="text-indigo-400 hover:text-indigo-300 text-sm">&larr; { i18n.T(ctx, "model.back") }</a>
 	</div>
 	<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 		<!-- Left column: viewer + images -->
@@ -178,7 +179,7 @@ templ ModelDetailPage(data ModelDetailData) {
 						data-files={ viewableFilesJSON(data.Model.Files) }
 					>
 						<div id="viewer-loading" class="absolute inset-0 flex items-center justify-center bg-gray-800">
-							<div class="text-gray-400">Loading 3D model...</div>
+							<div class="text-gray-400">{ i18n.T(ctx, "model.loading_3d") }</div>
 						</div>
 					</div>
 					<!-- File navigation bar -->
@@ -223,7 +224,7 @@ templ ModelDetailPage(data ModelDetailData) {
 			} else {
 				<div class="bg-gray-800 rounded-lg overflow-hidden">
 					<div class="w-full aspect-[4/3] flex items-center justify-center bg-gray-700">
-						<p class="text-gray-400">No viewable 3D file found</p>
+						<p class="text-gray-400">{ i18n.T(ctx, "model.no_viewable") }</p>
 					</div>
 				</div>
 			}
@@ -323,7 +324,7 @@ templ ModelDetailPage(data ModelDetailData) {
 		<div class="space-y-6">
 			<!-- Favorites -->
 			<div id="favorite-section" class="bg-gray-800 rounded-lg p-4 flex items-center justify-between">
-				<span class="text-sm font-medium text-gray-300">Favorites</span>
+				<span class="text-sm font-medium text-gray-300">{ i18n.T(ctx, "model.favorites") }</span>
 				@StarButton(data.Model.ID, data.Favorited)
 			</div>
 			<div id="model-info">
@@ -337,7 +338,7 @@ templ ModelDetailPage(data ModelDetailData) {
 			if vFiles := visibleFiles(data.Model.Files); len(vFiles) > 0 {
 				<div class="bg-gray-800 rounded-lg p-4">
 					<h3 class="text-sm font-medium text-gray-300 mb-3">
-						{ fmt.Sprintf("Files (%d)", len(vFiles)) }
+						{ i18n.T(ctx, "model.files", len(vFiles)) }
 					</h3>
 					<div class="space-y-4 max-h-96 overflow-y-auto" id="file-list">
 						for _, groupName := range sortedGroupKeys(data.GroupedFiles) {
@@ -361,7 +362,7 @@ templ ModelDetailPage(data ModelDetailData) {
 														download={ f.FileName }
 														onclick="event.stopPropagation()"
 														class="text-gray-500 hover:text-indigo-400 transition-colors"
-														title="Download"
+														title={ i18n.T(ctx, "model.download") }
 													>
 														<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 															<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
@@ -381,7 +382,7 @@ templ ModelDetailPage(data ModelDetailData) {
 														href={ templ.SafeURL(fileURL(f.FilePath)) }
 														download={ f.FileName }
 														class="text-gray-500 hover:text-indigo-400 transition-colors"
-														title="Download"
+														title={ i18n.T(ctx, "model.download") }
 													>
 														<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 															<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
@@ -402,7 +403,7 @@ templ ModelDetailPage(data ModelDetailData) {
 			<!-- Subdirectories -->
 			if subdirs := getSubdirKeys(data.GroupedFiles); len(subdirs) > 0 {
 				<div class="bg-gray-800 rounded-lg p-4">
-					<h3 class="text-sm font-medium text-gray-300 mb-3">Subdirectories</h3>
+					<h3 class="text-sm font-medium text-gray-300 mb-3">{ i18n.T(ctx, "model.subdirectories") }</h3>
 					<div class="space-y-1" id="subdirs-list">
 						for _, dir := range subdirs {
 							<div class="flex items-center justify-between text-sm p-1.5 rounded hover:bg-gray-700/50 group">
@@ -413,9 +414,9 @@ templ ModelDetailPage(data ModelDetailData) {
 									hx-target={ fmt.Sprintf("#ignore-status-%s", safeID(dir)) }
 									hx-swap="innerHTML"
 									class="opacity-0 group-hover:opacity-100 text-xs text-gray-500 hover:text-amber-400 transition-all px-2 py-0.5 rounded hover:bg-gray-700"
-									title="Add to ignored folder names"
+									title={ i18n.T(ctx, "model.ignore") }
 								>
-									+ ignore
+									{ i18n.T(ctx, "model.ignore") }
 								</button>
 								<span id={ fmt.Sprintf("ignore-status-%s", safeID(dir)) } class="text-xs"></span>
 							</div>
@@ -455,7 +456,7 @@ templ ModelInfo(data ModelDetailData) {
 			hx-swap="innerHTML"
 		>
 			<div class="mb-4">
-				<label class="block text-sm font-medium text-gray-300 mb-1">Name</label>
+				<label class="block text-sm font-medium text-gray-300 mb-1">{ i18n.T(ctx, "model.name") }</label>
 				<input
 					type="text"
 					name="name"
@@ -464,7 +465,7 @@ templ ModelInfo(data ModelDetailData) {
 				/>
 			</div>
 			<div class="mb-4">
-				<label class="block text-sm font-medium text-gray-300 mb-1">Notes</label>
+				<label class="block text-sm font-medium text-gray-300 mb-1">{ i18n.T(ctx, "model.notes") }</label>
 				<textarea
 					name="notes"
 					rows="3"
@@ -475,34 +476,34 @@ templ ModelInfo(data ModelDetailData) {
 				type="submit"
 				class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
 			>
-				Save
+				{ i18n.T(ctx, "model.save") }
 			</button>
 		</form>
 		<!-- Author (separate from form, uses own HTMX) -->
 		<div class="mt-4 pt-4 border-t border-gray-700">
-			<label class="block text-sm font-medium text-gray-300 mb-1">Author</label>
+			<label class="block text-sm font-medium text-gray-300 mb-1">{ i18n.T(ctx, "model.author") }</label>
 			<div id="author-select">
 				@AuthorSection(&data.Model, data.AllAuthors)
 			</div>
 		</div>
-		
+
 		<!-- Category Selection -->
 		<div class="mt-4 pt-4 border-t border-gray-700">
-			<label class="block text-sm font-medium text-gray-300 mb-1">Category</label>
+			<label class="block text-sm font-medium text-gray-300 mb-1">{ i18n.T(ctx, "model.category") }</label>
 			<div id="category-select">
 				@CategorySelect(&data.Model, data.AllCategories)
 			</div>
 		</div>
-		
+
 		<!-- Hidden Status Toggle -->
 		<div class="mt-4 pt-4 border-t border-gray-700">
-			<label class="block text-sm font-medium text-gray-300 mb-1">Visibility</label>
+			<label class="block text-sm font-medium text-gray-300 mb-1">{ i18n.T(ctx, "model.visibility") }</label>
 			<div class="flex items-center">
 				<span class="text-sm mr-2">
 					if data.Model.Hidden {
-						<span class="text-red-400">Hidden</span>
+						<span class="text-red-400">{ i18n.T(ctx, "model.hidden") }</span>
 					} else {
-						<span class="text-green-400">Visible</span>
+						<span class="text-green-400">{ i18n.T(ctx, "model.visible") }</span>
 					}
 				</span>
 				<button
@@ -512,9 +513,9 @@ templ ModelInfo(data ModelDetailData) {
 					class="text-xs bg-gray-700 hover:bg-gray-600 text-white px-2 py-1 rounded transition-colors"
 				>
 					if data.Model.Hidden {
-						Show
+						{ i18n.T(ctx, "model.show") }
 					} else {
-						Hide
+						{ i18n.T(ctx, "model.hide") }
 					}
 				</button>
 			</div>
@@ -542,7 +543,7 @@ templ AuthorSection(m *models.Model3D, authors []models.Author) {
 		} else {
 			<input
 				type="text"
-				placeholder="Search or create author..."
+				placeholder={ i18n.T(ctx, "model.search_author") }
 				autocomplete="off"
 				hx-get={ fmt.Sprintf("/api/models/%d/author/search", m.ID) }
 				hx-trigger="input changed delay:200ms, focus"
@@ -560,7 +561,7 @@ templ AuthorSectionWithSuggestions(m *models.Model3D, authors []models.Author, s
 	@AuthorSection(m, authors)
 	if len(suggestedTags) > 0 {
 		<div class="mt-2 pt-2 border-t border-gray-700">
-			<p class="text-xs text-gray-500 mb-1.5">Tags used by this author:</p>
+			<p class="text-xs text-gray-500 mb-1.5">{ i18n.T(ctx, "model.tags_by_author") }</p>
 			<div class="flex flex-wrap gap-1">
 				for _, t := range suggestedTags {
 					<button
@@ -570,7 +571,7 @@ templ AuthorSectionWithSuggestions(m *models.Model3D, authors []models.Author, s
 						hx-swap="innerHTML"
 						class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium text-white/80 hover:text-white cursor-pointer transition-colors hover:ring-1 hover:ring-white/30"
 						style={ fmt.Sprintf("background-color: %s", t.Color) }
-						title={ fmt.Sprintf("Used %d times", t.Count) }
+						title={ fmt.Sprintf("%d", t.Count) }
 					>
 						+ { t.Name }
 					</button>
@@ -606,7 +607,7 @@ templ CategorySection(m *models.Model3D, categories []models.Category) {
 		} else {
 			<input
 				type="text"
-				placeholder="Search category..."
+				placeholder={ i18n.T(ctx, "model.search_category") }
 				autocomplete="off"
 				hx-get={ fmt.Sprintf("/api/models/%d/category/search", m.ID) }
 				hx-trigger="input changed delay:200ms, focus"
@@ -629,7 +630,7 @@ templ CategoryTypeaheadResults(categories []models.Category, modelID int64, curr
 			hx-swap="innerHTML"
 			class="w-full text-left px-3 py-2 text-sm text-gray-400 hover:bg-gray-600 transition-colors italic"
 		>
-			No Category
+			{ i18n.T(ctx, "model.no_category") }
 		</button>
 		for _, c := range categories {
 			<button
@@ -682,7 +683,7 @@ templ AuthorTypeaheadResults(authors []models.Author, modelID int64, query strin
 				hx-swap="innerHTML"
 				class="w-full text-left px-3 py-2 text-sm text-indigo-400 hover:bg-gray-600 transition-colors border-t border-gray-600"
 			>
-				+ Create "{ query }"
+				{ i18n.T(ctx, "model.create_prefix") } "{ query }"
 			</button>
 		}
 	</div>
@@ -690,7 +691,7 @@ templ AuthorTypeaheadResults(authors []models.Author, modelID int64, query strin
 
 templ TagSection(currentTags []models.Tag, allTags []models.Tag, modelID int64) {
 	<div class="bg-gray-800 rounded-lg p-4">
-		<h3 class="text-sm font-medium text-gray-300 mb-3">Tags</h3>
+		<h3 class="text-sm font-medium text-gray-300 mb-3">{ i18n.T(ctx, "model.tags") }</h3>
 		<div class="flex flex-wrap gap-2 mb-3">
 			for _, t := range currentTags {
 				<span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium text-white" style={ fmt.Sprintf("background-color: %s", t.Color) }>
@@ -704,13 +705,13 @@ templ TagSection(currentTags []models.Tag, allTags []models.Tag, modelID int64) 
 				</span>
 			}
 			if len(currentTags) == 0 {
-				<span class="text-sm text-gray-500">No tags assigned</span>
+				<span class="text-sm text-gray-500">{ i18n.T(ctx, "model.no_tags") }</span>
 			}
 		</div>
 		<div class="relative">
 			<input
 				type="text"
-				placeholder="Search or create tag..."
+				placeholder={ i18n.T(ctx, "model.search_tag") }
 				autocomplete="off"
 				hx-get={ fmt.Sprintf("/api/models/%d/tags/search", modelID) }
 				hx-trigger="input changed delay:200ms, focus"
@@ -746,7 +747,7 @@ templ TagTypeaheadResults(tags []models.Tag, modelID int64, query string) {
 				hx-swap="innerHTML"
 				class="w-full text-left px-3 py-2 text-sm text-indigo-400 hover:bg-gray-600 transition-colors border-t border-gray-600"
 			>
-				+ Create "{ query }"
+				{ i18n.T(ctx, "model.create_prefix") } "{ query }"
 			</button>
 		}
 	</div>
@@ -754,12 +755,12 @@ templ TagTypeaheadResults(tags []models.Tag, modelID int64, query string) {
 
 templ PathSection(modelID int64, path string) {
 	<div class="bg-gray-800 rounded-lg p-4" id="path-section">
-		<h3 class="text-sm font-medium text-gray-300 mb-2">Path</h3>
+		<h3 class="text-sm font-medium text-gray-300 mb-2">{ i18n.T(ctx, "model.path") }</h3>
 		<form
 			hx-put={ fmt.Sprintf("/api/models/%d/path", modelID) }
 			hx-target="#path-section"
 			hx-swap="outerHTML"
-			hx-confirm="Are you sure? Changing the path may merge this model with an existing one if the path already exists."
+			hx-confirm={ i18n.T(ctx, "model.path_confirm") }
 		>
 			<div class="mb-2">
 				<input
@@ -773,7 +774,7 @@ templ PathSection(modelID int64, path string) {
 				type="submit"
 				class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
 			>
-				Update Path
+				{ i18n.T(ctx, "model.update_path") }
 			</button>
 		</form>
 	</div>
@@ -781,7 +782,7 @@ templ PathSection(modelID int64, path string) {
 
 templ ImageGallery(modelID int64, images []string) {
 	<h3 class="text-sm font-medium text-gray-300 mb-3">
-		{ fmt.Sprintf("Images (%d)", len(images)) }
+		{ i18n.T(ctx, "model.images", len(images)) }
 	</h3>
 	<div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2" id="image-gallery">
 		for i, img := range images {
@@ -801,7 +802,7 @@ templ ImageGallery(modelID int64, images []string) {
 					hx-vals={ fmt.Sprintf(`{"image_path":"%s"}`, img) }
 					hx-target="#image-gallery-section"
 					hx-swap="innerHTML"
-					hx-confirm="Hide this image? (You can unhide it by removing the dot from the filename)"
+					hx-confirm={ i18n.T(ctx, "model.hide_image_confirm") }
 					class="absolute top-1 right-1 w-6 h-6 bg-red-600/90 hover:bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-sm font-bold"
 					onclick="event.stopPropagation()"
 				>
@@ -811,6 +812,6 @@ templ ImageGallery(modelID int64, images []string) {
 		}
 	</div>
 	if len(images) == 0 {
-		<p class="text-sm text-gray-400 text-center py-8">No images found</p>
+		<p class="text-sm text-gray-400 text-center py-8">{ i18n.T(ctx, "model.no_images") }</p>
 	}
 }

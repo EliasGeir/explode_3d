@@ -11,6 +11,7 @@ import (
 	"3dmodels/internal/config"
 	"3dmodels/internal/database"
 	"3dmodels/internal/handlers"
+	"3dmodels/internal/i18n"
 	authmw "3dmodels/internal/middleware"
 	"3dmodels/internal/repository"
 	"3dmodels/internal/scanner"
@@ -20,6 +21,8 @@ import (
 )
 
 func main() {
+	i18n.Load()
+
 	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
@@ -58,16 +61,19 @@ func main() {
 	categoryHandler := handlers.NewCategoryHandler(categoryRepo)
 	authHandler := handlers.NewAuthHandler(userRepo, cfg.JWTSecret)
 	feedbackHandler := handlers.NewFeedbackHandler(feedbackRepo)
+	langHandler := handlers.NewLangHandler()
 
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
+	r.Use(i18n.Middleware)
 
 	// Static files (public)
 	fileServer := http.FileServer(http.Dir("static"))
 	r.Handle("/static/*", http.StripPrefix("/static/", fileServer))
 
 	// Public routes (no auth)
+	r.Get("/set-lang", langHandler.SetLang)
 	r.Get("/login", authHandler.LoginPage)
 	r.Post("/login", authHandler.Login)
 	r.Get("/setup", authHandler.SetupPage)
