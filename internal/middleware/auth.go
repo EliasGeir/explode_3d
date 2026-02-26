@@ -13,6 +13,7 @@ type contextKey string
 const (
 	userIDKey   contextKey = "userID"
 	usernameKey contextKey = "username"
+	rolesKey    contextKey = "roles"
 )
 
 func RequireAuth(jwtSecret string) func(http.Handler) http.Handler {
@@ -70,12 +71,36 @@ func RequireAuth(jwtSecret string) func(http.Handler) http.Handler {
 			case float64:
 				userID = int64(v)
 			default:
-				_ = sub // keep the variable used
+				_ = sub
+			}
+
+			// Estrai ruoli dal claim JWT
+			var roles []string
+			if rawRoles, ok := claims["roles"].([]interface{}); ok {
+				for _, r := range rawRoles {
+					if s, ok := r.(string); ok {
+						roles = append(roles, s)
+					}
+				}
 			}
 
 			ctx := context.WithValue(r.Context(), userIDKey, userID)
 			ctx = context.WithValue(ctx, usernameKey, username)
+			ctx = context.WithValue(ctx, rolesKey, roles)
 			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
+}
+
+// RequireRole è un middleware che blocca l'accesso se l'utente non ha il ruolo richiesto.
+func RequireRole(role string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if !HasRole(r.Context(), role) {
+				http.Error(w, "Accesso negato: permessi insufficienti.", http.StatusForbidden)
+				return
+			}
+			next.ServeHTTP(w, r)
 		})
 	}
 }
@@ -92,6 +117,22 @@ func GetUsername(ctx context.Context) string {
 		return name
 	}
 	return ""
+}
+
+func GetRoles(ctx context.Context) []string {
+	if roles, ok := ctx.Value(rolesKey).([]string); ok {
+		return roles
+	}
+	return nil
+}
+
+func HasRole(ctx context.Context, role string) bool {
+	for _, r := range GetRoles(ctx) {
+		if r == role {
+			return true
+		}
+	}
+	return false
 }
 
 func redirectToLogin(w http.ResponseWriter, r *http.Request) {

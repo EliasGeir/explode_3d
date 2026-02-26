@@ -52,6 +52,7 @@ func (h *SettingsHandler) Page(w http.ResponseWriter, r *http.Request) {
 	scannerMinDepth := h.settingsRepo.GetString("scanner_min_depth", "2")
 
 	users, _ := h.userRepo.GetAll()
+	allRoles, _ := h.userRepo.GetAllRoles()
 
 	username := middleware.GetUsername(r.Context())
 
@@ -64,8 +65,10 @@ func (h *SettingsHandler) Page(w http.ResponseWriter, r *http.Request) {
 		ExcludedFolders:    excludedFolders,
 		ExcludedPaths:      excludedPaths,
 		Users:              users,
+		AllRoles:           allRoles,
 		ActiveTab:          activeTab,
 		Username:           username,
+		IsAdmin:            middleware.HasRole(r.Context(), "ROLE_ADMIN"),
 	}
 
 	lastScan, err := h.settingsRepo.Get("last_scan_at")
@@ -229,11 +232,12 @@ func (h *SettingsHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 
 	// Re-render user list via OOB swap + success form
 	users, _ := h.userRepo.GetAll()
+	allRoles, _ := h.userRepo.GetAllRoles()
 	w.Header().Set("Content-Type", "text/html")
 	templates.CreateUserSuccess().Render(r.Context(), w)
 	// OOB update for user list
 	w.Write([]byte(`<div id="users-section" hx-swap-oob="innerHTML">`))
-	templates.UsersList(users).Render(r.Context(), w)
+	templates.UsersList(users, allRoles).Render(r.Context(), w)
 	w.Write([]byte(`</div>`))
 }
 
@@ -258,5 +262,53 @@ func (h *SettingsHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	users, _ := h.userRepo.GetAll()
-	templates.UsersList(users).Render(r.Context(), w)
+	allRoles, _ := h.userRepo.GetAllRoles()
+	templates.UsersList(users, allRoles).Render(r.Context(), w)
+}
+
+// POST /api/settings/users/{id}/roles — assegna un ruolo all'utente
+func (h *SettingsHandler) AssignRole(w http.ResponseWriter, r *http.Request) {
+	userID, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		http.Error(w, "Invalid user ID", http.StatusBadRequest)
+		return
+	}
+	r.ParseForm()
+	roleID, err := strconv.ParseInt(r.FormValue("role_id"), 10, 64)
+	if err != nil {
+		http.Error(w, "Invalid role ID", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.userRepo.AssignRole(userID, roleID); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	users, _ := h.userRepo.GetAll()
+	allRoles, _ := h.userRepo.GetAllRoles()
+	templates.UsersList(users, allRoles).Render(r.Context(), w)
+}
+
+// DELETE /api/settings/users/{id}/roles/{roleId} — rimuove un ruolo dall'utente
+func (h *SettingsHandler) RemoveRole(w http.ResponseWriter, r *http.Request) {
+	userID, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		http.Error(w, "Invalid user ID", http.StatusBadRequest)
+		return
+	}
+	roleID, err := strconv.ParseInt(chi.URLParam(r, "roleId"), 10, 64)
+	if err != nil {
+		http.Error(w, "Invalid role ID", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.userRepo.RemoveRole(userID, roleID); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	users, _ := h.userRepo.GetAll()
+	allRoles, _ := h.userRepo.GetAllRoles()
+	templates.UsersList(users, allRoles).Render(r.Context(), w)
 }

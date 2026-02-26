@@ -37,6 +37,7 @@ func main() {
 	settingsRepo := repository.NewSettingsRepository(db)
 	categoryRepo := repository.NewCategoryRepository(db)
 	userRepo := repository.NewUserRepository(db)
+	feedbackRepo := repository.NewFeedbackRepository(db)
 
 	sc := scanner.New(cfg.ScanPath, modelRepo, tagRepo, categoryRepo, settingsRepo)
 
@@ -53,6 +54,7 @@ func main() {
 	settingsHandler := handlers.NewSettingsHandler(settingsRepo, sc, userRepo)
 	categoryHandler := handlers.NewCategoryHandler(categoryRepo)
 	authHandler := handlers.NewAuthHandler(userRepo, cfg.JWTSecret)
+	feedbackHandler := handlers.NewFeedbackHandler(feedbackRepo)
 
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
@@ -83,7 +85,6 @@ func main() {
 		r.Get("/models/{id}", pageHandler.ModelDetail)
 		r.Get("/authors", pageHandler.Authors)
 		r.Get("/tags", pageHandler.Tags)
-		r.Get("/settings", settingsHandler.Page)
 
 		// API - Models
 		r.Get("/api/models", modelHandler.List)
@@ -118,21 +119,43 @@ func main() {
 		r.Post("/api/scan", scanHandler.StartScan)
 		r.Get("/api/scan/status", scanHandler.Status)
 
-		// API - Settings
-		r.Post("/api/settings/scan", settingsHandler.ForceScan)
-		r.Put("/api/settings", settingsHandler.SaveSettings)
-		r.Put("/api/settings/scanner-depth", settingsHandler.SaveScannerDepth)
-		r.Put("/api/settings/ignored-folders", settingsHandler.SaveIgnoredFolders)
-		r.Post("/api/settings/ignored-folders/add", settingsHandler.AddIgnoredFolder)
-		r.Put("/api/settings/excluded-folders", settingsHandler.SaveExcludedFolders)
-		r.Delete("/api/settings/excluded-paths", settingsHandler.RemoveExcludedPath)
-
-		// API - Settings: Users
-		r.Post("/api/settings/users", settingsHandler.CreateUser)
-		r.Delete("/api/settings/users/{id}", settingsHandler.DeleteUser)
-
 		// API - Categories
 		r.Get("/api/categories/{id}/children", categoryHandler.GetChildren)
+
+		// Feedback: accessibili a tutti gli utenti autenticati
+		r.Get("/api/feedback/modal", feedbackHandler.Modal)
+		r.Post("/api/feedback", feedbackHandler.Submit)
+
+		// Sezione Admin — solo ROLE_ADMIN
+		r.Group(func(r chi.Router) {
+			r.Use(authmw.RequireRole("ROLE_ADMIN"))
+
+			// Settings page + API
+			r.Get("/settings", settingsHandler.Page)
+			r.Post("/api/settings/scan", settingsHandler.ForceScan)
+			r.Put("/api/settings", settingsHandler.SaveSettings)
+			r.Put("/api/settings/scanner-depth", settingsHandler.SaveScannerDepth)
+			r.Put("/api/settings/ignored-folders", settingsHandler.SaveIgnoredFolders)
+			r.Post("/api/settings/ignored-folders/add", settingsHandler.AddIgnoredFolder)
+			r.Put("/api/settings/excluded-folders", settingsHandler.SaveExcludedFolders)
+			r.Delete("/api/settings/excluded-paths", settingsHandler.RemoveExcludedPath)
+
+			// Users management
+			r.Post("/api/settings/users", settingsHandler.CreateUser)
+			r.Delete("/api/settings/users/{id}", settingsHandler.DeleteUser)
+			r.Post("/api/settings/users/{id}/roles", settingsHandler.AssignRole)
+			r.Delete("/api/settings/users/{id}/roles/{roleId}", settingsHandler.RemoveRole)
+
+			// Feedback admin
+			r.Get("/feedback", feedbackHandler.Page)
+			r.Get("/api/feedback", feedbackHandler.List)
+			r.Put("/api/feedback/{id}/status", feedbackHandler.UpdateStatus)
+			r.Delete("/api/feedback/{id}", feedbackHandler.Delete)
+			r.Get("/api/feedback/categories", feedbackHandler.GetCategories)
+			r.Post("/api/feedback/categories", feedbackHandler.CreateCategory)
+			r.Put("/api/feedback/categories/{id}", feedbackHandler.UpdateCategory)
+			r.Delete("/api/feedback/categories/{id}", feedbackHandler.DeleteCategory)
+		})
 	})
 
 	addr := fmt.Sprintf(":%s", cfg.Port)

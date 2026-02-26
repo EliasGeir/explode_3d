@@ -49,7 +49,13 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.setTokenCookie(w, user.ID, user.Username)
+	roles, _ := h.userRepo.GetUserRoles(user.ID)
+	roleNames := make([]string, len(roles))
+	for i, role := range roles {
+		roleNames[i] = role.Name
+	}
+
+	h.setTokenCookie(w, user.ID, user.Username, roleNames)
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
@@ -116,14 +122,24 @@ func (h *AuthHandler) Setup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.setTokenCookie(w, user.ID, user.Username)
+	// Il primo utente riceve ROLE_ADMIN (oltre a ROLE_USER già assegnato da Create)
+	h.userRepo.AssignRoleByName(user.ID, "ROLE_ADMIN")
+
+	roles, _ := h.userRepo.GetUserRoles(user.ID)
+	roleNames := make([]string, len(roles))
+	for i, role := range roles {
+		roleNames[i] = role.Name
+	}
+
+	h.setTokenCookie(w, user.ID, user.Username, roleNames)
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
-func (h *AuthHandler) setTokenCookie(w http.ResponseWriter, userID int64, username string) {
+func (h *AuthHandler) setTokenCookie(w http.ResponseWriter, userID int64, username string, roles []string) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"sub":      userID,
 		"username": username,
+		"roles":    roles,
 		"exp":      time.Now().Add(24 * time.Hour).Unix(),
 	})
 

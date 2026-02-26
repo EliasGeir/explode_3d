@@ -150,9 +150,11 @@ func (h *PageHandler) Home(w http.ResponseWriter, r *http.Request) {
 	}
 
 	username := middleware.GetUsername(r.Context())
+	isAdmin := middleware.HasRole(r.Context(), "ROLE_ADMIN")
 	templates.LayoutWithUser(
 		"3D Models",
 		username,
+		isAdmin,
 		templates.TopCategories(data),
 		nil, // No sidebar
 		templates.HomePageContent(data),
@@ -258,17 +260,20 @@ func (h *PageHandler) ModelDetail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	username := middleware.GetUsername(r.Context())
-	templates.LayoutWithUser(model.Name, username, nil, nil, templates.ModelDetailPage(data)).Render(r.Context(), w)
+	isAdmin := middleware.HasRole(r.Context(), "ROLE_ADMIN")
+	templates.LayoutWithUser(model.Name, username, isAdmin, nil, nil, templates.ModelDetailPage(data)).Render(r.Context(), w)
 }
 
 func (h *PageHandler) Authors(w http.ResponseWriter, r *http.Request) {
 	authors, _ := h.authorRepo.GetAllWithCount()
 	username := middleware.GetUsername(r.Context())
-	templates.LayoutWithUser("Authors", username, nil, nil, templates.AuthorsPage(authors)).Render(r.Context(), w)
+	isAdmin := middleware.HasRole(r.Context(), "ROLE_ADMIN")
+	templates.LayoutWithUser("Authors", username, isAdmin, nil, nil, templates.AuthorsPage(authors)).Render(r.Context(), w)
 }
 
 func (h *PageHandler) Tags(w http.ResponseWriter, r *http.Request) {
 	tags, _ := h.tagRepo.GetAllWithCount()
 	username := middleware.GetUsername(r.Context())
-	templates.LayoutWithUser("Tags", username, nil, nil, templates.TagsPage(tags)).Render(r.Context(), w)
+	isAdmin := middleware.HasRole(r.Context(), "ROLE_ADMIN")
+	templates.LayoutWithUser("Tags", username, isAdmin, nil, nil, templates.TagsPage(tags)).Render(r.Context(), w)
 }

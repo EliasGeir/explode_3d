@@ -109,6 +109,15 @@ func isHiddenFile(name string) bool {
 	return strings.HasPrefix(name, ".")
 }
 
+// categoryParentPath returns the portion of the path before the last "/", or "" if no separator.
+func categoryParentPath(path string) string {
+	i := strings.LastIndex(path, "/")
+	if i < 0 {
+		return ""
+	}
+	return path[:i]
+}
+
 func visibleFiles(files []models.ModelFile) []models.ModelFile {
 	var result []models.ModelFile
 	for _, f := range files {
@@ -606,13 +615,13 @@ templ CategorySection(m *models.Model3D, categories []models.Category) {
 }
 
 templ CategoryTypeaheadResults(categories []models.Category, modelID int64, currentCategoryID *int64) {
-	<div class="bg-gray-700 border border-gray-600 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+	<div class="bg-gray-700 border border-gray-600 rounded-lg shadow-lg max-h-60 overflow-y-auto">
 		<button
 			hx-put={ fmt.Sprintf("/api/models/%d/category", modelID) }
 			hx-vals={ `{"category_id":"0"}` }
 			hx-target="#category-select"
 			hx-swap="innerHTML"
-			class="w-full text-left px-3 py-2 text-sm text-gray-400 hover:bg-gray-600 transition-colors"
+			class="w-full text-left px-3 py-2 text-sm text-gray-400 hover:bg-gray-600 transition-colors italic"
 		>
 			No Category
 		</button>
@@ -622,11 +631,25 @@ templ CategoryTypeaheadResults(categories []models.Category, modelID int64, curr
 				hx-vals={ fmt.Sprintf(`{"category_id":"%d"}`, c.ID) }
 				hx-target="#category-select"
 				hx-swap="innerHTML"
-				class={ "w-full text-left px-3 py-2 text-sm hover:bg-gray-600 transition-colors",
-					templ.KV("text-indigo-400", currentCategoryID != nil && *currentCategoryID == c.ID),
-					templ.KV("text-gray-200", currentCategoryID == nil || *currentCategoryID != c.ID) }
+				class={ "w-full text-left px-3 py-2 hover:bg-gray-600 transition-colors flex items-center gap-2",
+					templ.KV("bg-indigo-900/40 border-l-2 border-indigo-400", currentCategoryID != nil && *currentCategoryID == c.ID),
+					templ.KV("border-l-2 border-transparent", currentCategoryID == nil || *currentCategoryID != c.ID) }
 			>
-				{ c.Path }
+				<div class="min-w-0 flex-1">
+					if parent := categoryParentPath(c.Path); parent != "" {
+						<div class="text-xs text-gray-500 truncate mb-0.5">{ parent }</div>
+					}
+					<div class={ "text-sm font-medium truncate",
+						templ.KV("text-indigo-300", currentCategoryID != nil && *currentCategoryID == c.ID),
+						templ.KV("text-gray-200", currentCategoryID == nil || *currentCategoryID != c.ID) }>
+						{ c.Name }
+					</div>
+				</div>
+				if currentCategoryID != nil && *currentCategoryID == c.ID {
+					<svg class="w-4 h-4 text-indigo-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+					</svg>
+				}
 			</button>
 		}
 	</div>

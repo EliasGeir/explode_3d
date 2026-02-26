@@ -81,6 +81,41 @@ CREATE INDEX IF NOT EXISTS idx_model_tags_model ON model_tags(model_id);
 CREATE INDEX IF NOT EXISTS idx_model_tags_tag ON model_tags(tag_id);
 CREATE INDEX IF NOT EXISTS idx_categories_path ON categories(path);
 CREATE INDEX IF NOT EXISTS idx_categories_parent ON categories(parent_id);
+
+CREATE TABLE IF NOT EXISTS feedback_categories (
+    id SERIAL PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE,
+    color TEXT DEFAULT '#6b7280',
+    icon TEXT DEFAULT '💬',
+    sort_order INTEGER DEFAULT 0,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS feedbacks (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    category_id INTEGER REFERENCES feedback_categories(id) ON DELETE SET NULL,
+    title TEXT NOT NULL,
+    message TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_feedbacks_status ON feedbacks(status);
+CREATE INDEX IF NOT EXISTS idx_feedbacks_category ON feedbacks(category_id);
+
+CREATE TABLE IF NOT EXISTS roles (
+    id SERIAL PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE,
+    description TEXT DEFAULT '',
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS user_roles (
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    role_id INTEGER NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
+    PRIMARY KEY (user_id, role_id)
+);
 `
 
 const ftsSetup = `

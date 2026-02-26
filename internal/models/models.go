@@ -75,10 +75,41 @@ type ModelListParams struct {
 	PageSize   int
 }
 
+type Role struct {
+	ID          int64     `json:"id"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+	CreatedAt   time.Time `json:"created_at"`
+}
+
 type User struct {
 	ID           int64     `json:"id"`
 	Username     string    `json:"username"`
 	Email        string    `json:"email"`
 	PasswordHash string    `json:"-"`
 	CreatedAt    time.Time `json:"created_at"`
+	Roles        []Role    `json:"roles,omitempty"`
+}
+
+type FeedbackCategory struct {
+	ID        int64     `json:"id"`
+	Name      string    `json:"name"`
+	Color     string    `json:"color"`
+	Icon      string    `json:"icon"`
+	SortOrder int       `json:"sort_order"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+type Feedback struct {
+	ID         int64     `json:"id"`
+	UserID     *int64    `json:"user_id"`
+	CategoryID *int64    `json:"category_id"`
+	Title      string    `json:"title"`
+	Message    string    `json:"message"`
+	Status     string    `json:"status"` // pending | read | resolved
+	CreatedAt  time.Time `json:"created_at"`
+
+	// Joined
+	Category *FeedbackCategory `json:"category,omitempty"`
+	Username string            `json:"username,omitempty"`
 }
