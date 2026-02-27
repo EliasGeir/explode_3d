@@ -17,20 +17,35 @@ type SettingsHandler struct {
 	settingsRepo *repository.SettingsRepository
 	scanner      *scanner.Scanner
 	userRepo     *repository.UserRepository
+	slicerRepo   *repository.SlicerRepository
 }
 
-func NewSettingsHandler(settingsRepo *repository.SettingsRepository, sc *scanner.Scanner, userRepo *repository.UserRepository) *SettingsHandler {
+func NewSettingsHandler(settingsRepo *repository.SettingsRepository, sc *scanner.Scanner, userRepo *repository.UserRepository, slicerRepo *repository.SlicerRepository) *SettingsHandler {
 	return &SettingsHandler{
 		settingsRepo: settingsRepo,
 		scanner:      sc,
 		userRepo:     userRepo,
+		slicerRepo:   slicerRepo,
 	}
 }
 
 func (h *SettingsHandler) Page(w http.ResponseWriter, r *http.Request) {
 	activeTab := r.URL.Query().Get("tab")
+	isAdmin := middleware.HasRole(r.Context(), "ROLE_ADMIN")
+	username := middleware.GetUsername(r.Context())
+
+	// Default tab: printers for non-admins, scanner for admins
 	if activeTab == "" {
-		activeTab = "scanner"
+		if isAdmin {
+			activeTab = "scanner"
+		} else {
+			activeTab = "printers"
+		}
+	}
+
+	// Non-admins can only see the printers tab
+	if !isAdmin && activeTab != "printers" {
+		activeTab = "printers"
 	}
 
 	ignoredFolders := scanner.DefaultIgnoredFolders()
@@ -54,7 +69,8 @@ func (h *SettingsHandler) Page(w http.ResponseWriter, r *http.Request) {
 	users, _ := h.userRepo.GetAll()
 	allRoles, _ := h.userRepo.GetAllRoles()
 
-	username := middleware.GetUsername(r.Context())
+	// Load printer profiles
+	printerProfiles, _ := h.slicerRepo.GetAllProfiles()
 
 	data := templates.SettingsData{
 		AutoScanEnabled:    h.settingsRepo.GetBool("auto_scan_enabled", true),
@@ -66,9 +82,10 @@ func (h *SettingsHandler) Page(w http.ResponseWriter, r *http.Request) {
 		ExcludedPaths:      excludedPaths,
 		Users:              users,
 		AllRoles:           allRoles,
+		PrinterProfiles:    printerProfiles,
 		ActiveTab:          activeTab,
 		Username:           username,
-		IsAdmin:            middleware.HasRole(r.Context(), "ROLE_ADMIN"),
+		IsAdmin:            isAdmin,
 	}
 
 	lastScan, err := h.settingsRepo.Get("last_scan_at")

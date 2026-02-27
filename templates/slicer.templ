@@ -1,0 +1,335 @@
+package templates
+
+import (
+	"fmt"
+	"3dmodels/internal/i18n"
+	"3dmodels/internal/models"
+)
+
+type SlicerPageData struct {
+	Files             []models.ModelFile
+	ModelID           int64
+	ModelName         string
+	Profiles          []models.PrinterProfile
+	Settings          *models.PrintSettings
+	SelectedProfileID int64
+	Username          string
+	IsAdmin           bool
+}
+
+func slicerFilesJSON(files []models.ModelFile) string {
+	if len(files) == 0 {
+		return "[]"
+	}
+	result := "["
+	for i, f := range files {
+		if i > 0 {
+			result += ","
+		}
+		result += fmt.Sprintf(`{"url":"%s","name":"%s","id":%d}`, fileURL(f.FilePath), f.FileName, f.ID)
+	}
+	result += "]"
+	return result
+}
+
+func slicerFileIDs(files []models.ModelFile) string {
+	result := ""
+	for i, f := range files {
+		if i > 0 {
+			result += ","
+		}
+		result += fmt.Sprintf("%d", f.ID)
+	}
+	return result
+}
+
+func selectedProfile(data SlicerPageData) models.PrinterProfile {
+	for _, p := range data.Profiles {
+		if p.ID == data.SelectedProfileID {
+			return p
+		}
+	}
+	if len(data.Profiles) > 0 {
+		return data.Profiles[0]
+	}
+	return models.PrinterProfile{}
+}
+
+func fmtFloat(v float64) string {
+	return fmt.Sprintf("%.2f", v)
+}
+
+func fmtFloatP(v float64) string {
+	return fmt.Sprintf("%.3f", v)
+}
+
+templ SlicerPage(data SlicerPageData) {
+	<div class="mb-4 flex items-center justify-between">
+		<h1 class="text-2xl font-bold text-white">{ i18n.T(ctx, "slicer.title") }</h1>
+		if data.ModelID > 0 {
+			<a href={ templ.SafeURL(fmt.Sprintf("/models/%d", data.ModelID)) } class="text-indigo-400 hover:text-indigo-300 text-sm">
+				&larr; { i18n.T(ctx, "slicer.back_to_model") }
+			</a>
+		}
+	</div>
+
+	if len(data.Files) == 0 {
+		<div class="bg-gray-800 rounded-lg p-8 text-center">
+			<svg class="mx-auto h-12 w-12 text-gray-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+			</svg>
+			<p class="text-gray-400">{ i18n.T(ctx, "slicer.no_files") }</p>
+		</div>
+	} else {
+		<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+			<!-- Left: 3D Preview -->
+			<div class="lg:col-span-2 space-y-4">
+				<div class="bg-gray-800 rounded-lg overflow-hidden">
+					<div
+						id="slicer-viewer"
+						class="w-full aspect-[4/3] relative"
+						data-files={ slicerFilesJSON(data.Files) }
+						data-plate-width={ fmtFloat(selectedProfile(data).BuildWidthMM) }
+						data-plate-depth={ fmtFloat(selectedProfile(data).BuildDepthMM) }
+						data-plate-height={ fmtFloat(selectedProfile(data).BuildHeightMM) }
+					>
+						<div class="absolute inset-0 flex items-center justify-center bg-gray-800">
+							<div class="text-gray-400">{ i18n.T(ctx, "model.loading_3d") }</div>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<!-- Right: Controls -->
+			<div class="space-y-4">
+				<!-- Selected files -->
+				<div class="bg-gray-800 rounded-lg p-4">
+					<h3 class="text-sm font-medium text-gray-300 mb-3">{ i18n.T(ctx, "slicer.selected_files") }</h3>
+					<div class="space-y-1">
+						for _, f := range data.Files {
+							<div class="flex items-center justify-between text-sm p-1.5 rounded bg-gray-700/50">
+								<div class="flex items-center space-x-2 min-w-0">
+									<span class="px-2 py-0.5 bg-indigo-600/30 text-indigo-300 rounded text-xs uppercase flex-shrink-0">{ f.FileExt }</span>
+									<span class="text-gray-300 truncate">{ f.FileName }</span>
+								</div>
+								<span class="text-gray-500 text-xs flex-shrink-0">{ formatSize(f.FileSize) }</span>
+							</div>
+						}
+					</div>
+				</div>
+
+				<!-- Printer Profile -->
+				<div class="bg-gray-800 rounded-lg p-4">
+					<h3 class="text-sm font-medium text-gray-300 mb-3">{ i18n.T(ctx, "slicer.printer_profile") }</h3>
+					<div id="profile-selector">
+						if len(data.Profiles) > 0 {
+							@ProfileSelector(data.Profiles, data.SelectedProfileID)
+						}
+					</div>
+				</div>
+
+				<!-- Print Settings -->
+				<div class="bg-gray-800 rounded-lg p-4" id="settings-form">
+					if data.Settings != nil {
+						@PrintSettingsForm(data.Settings, func() *models.PrinterProfile { p := selectedProfile(data); return &p }())
+					}
+				</div>
+
+				<!-- Slice Button & Progress -->
+				<div class="bg-gray-800 rounded-lg p-4">
+					<form
+						hx-post="/api/slicer/slice"
+						hx-target="#slice-progress"
+						hx-swap="innerHTML"
+						hx-include="#settings-form input, #settings-form select"
+						id="slice-form"
+					>
+						<input type="hidden" name="file_ids" value={ slicerFileIDs(data.Files) }/>
+						<input type="hidden" name="model_id" value={ fmt.Sprintf("%d", data.ModelID) }/>
+						<input type="hidden" name="model_name" value={ data.ModelName }/>
+						<input type="hidden" name="profile_id" id="slice-profile-id" value={ fmt.Sprintf("%d", data.SelectedProfileID) }/>
+						<button
+							type="submit"
+							class="w-full bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-3 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+						>
+							<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+							</svg>
+							{ i18n.T(ctx, "slicer.start_slice") }
+						</button>
+					</form>
+					<div id="slice-progress" class="mt-3"></div>
+				</div>
+			</div>
+		</div>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+		<script src="/static/js/slicer3d.js"></script>
+	}
+}
+
+templ ProfileSelector(profiles []models.PrinterProfile, selectedID int64) {
+	<select
+		name="profile_id"
+		class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+		id="profile-select"
+	>
+		for _, p := range profiles {
+			<option
+				value={ fmt.Sprintf("%d", p.ID) }
+				if p.ID == selectedID {
+					selected
+				}
+				data-width={ fmtFloat(p.BuildWidthMM) }
+				data-depth={ fmtFloat(p.BuildDepthMM) }
+				data-height={ fmtFloat(p.BuildHeightMM) }
+			>
+				{ p.Manufacturer } { p.Name }
+			</option>
+		}
+	</select>
+	<script>
+		(function() {
+			var sel = document.getElementById('profile-select');
+			if (!sel) return;
+			sel.addEventListener('change', function() {
+				var id = sel.value;
+				var opt = sel.options[sel.selectedIndex];
+
+				// Update hidden profile_id
+				var hiddenInput = document.getElementById('slice-profile-id');
+				if (hiddenInput) hiddenInput.value = id;
+
+				// Save selection in cookie (expires in 1 year)
+				document.cookie = 'slicer_profile_id=' + id + ';path=/;max-age=31536000;SameSite=Lax';
+
+				// Update build plate in 3D viewer
+				if (window.slicerUpdateProfile) {
+					window.slicerUpdateProfile(
+						parseFloat(opt.dataset.width),
+						parseFloat(opt.dataset.depth),
+						parseFloat(opt.dataset.height)
+					);
+				}
+
+				// Load settings via HTMX
+				htmx.ajax('GET', '/api/slicer/settings/' + id, {target: '#settings-form', swap: 'innerHTML'});
+			});
+		})();
+	</script>
+}
+
+templ PrintSettingsForm(settings *models.PrintSettings, profile *models.PrinterProfile) {
+	<h3 class="text-sm font-medium text-gray-300 mb-3">{ i18n.T(ctx, "slicer.print_settings") }</h3>
+	if profile != nil {
+		<div class="text-xs text-gray-500 mb-3">
+			{ i18n.T(ctx, "slicer.build_volume", fmtFloat(profile.BuildWidthMM), fmtFloat(profile.BuildDepthMM), fmtFloat(profile.BuildHeightMM)) }
+			<br/>
+			{ i18n.T(ctx, "slicer.resolution", profile.ResolutionX, profile.ResolutionY) }
+		</div>
+	}
+	<div class="space-y-3">
+		<div>
+			<label class="block text-xs text-gray-400 mb-1">{ i18n.T(ctx, "slicer.layer_height") }</label>
+			<input type="number" name="layer_height_mm" value={ fmtFloatP(settings.LayerHeightMM) } step="0.01" min="0.01" max="0.2"
+				class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"/>
+		</div>
+		<div class="grid grid-cols-2 gap-3">
+			<div>
+				<label class="block text-xs text-gray-400 mb-1">{ i18n.T(ctx, "slicer.exposure_time") }</label>
+				<input type="number" name="exposure_time_s" value={ fmtFloat(settings.ExposureTimeS) } step="0.1" min="0.1"
+					class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"/>
+			</div>
+			<div>
+				<label class="block text-xs text-gray-400 mb-1">{ i18n.T(ctx, "slicer.bottom_exposure") }</label>
+				<input type="number" name="bottom_exposure_s" value={ fmtFloat(settings.BottomExposureS) } step="0.5" min="0.5"
+					class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"/>
+			</div>
+		</div>
+		<div>
+			<label class="block text-xs text-gray-400 mb-1">{ i18n.T(ctx, "slicer.bottom_layers") }</label>
+			<input type="number" name="bottom_layers" value={ fmt.Sprintf("%d", settings.BottomLayers) } min="1" max="20"
+				class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"/>
+		</div>
+		<div class="grid grid-cols-2 gap-3">
+			<div>
+				<label class="block text-xs text-gray-400 mb-1">{ i18n.T(ctx, "slicer.lift_height") }</label>
+				<input type="number" name="lift_height_mm" value={ fmtFloat(settings.LiftHeightMM) } step="0.5" min="1"
+					class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"/>
+			</div>
+			<div>
+				<label class="block text-xs text-gray-400 mb-1">{ i18n.T(ctx, "slicer.lift_speed") }</label>
+				<input type="number" name="lift_speed_mmps" value={ fmtFloat(settings.LiftSpeedMMPS) } step="0.5" min="0.5"
+					class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"/>
+			</div>
+		</div>
+		<div class="grid grid-cols-2 gap-3">
+			<div>
+				<label class="block text-xs text-gray-400 mb-1">{ i18n.T(ctx, "slicer.retract_speed") }</label>
+				<input type="number" name="retract_speed_mmps" value={ fmtFloat(settings.RetractSpeedMMPS) } step="0.5" min="0.5"
+					class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"/>
+			</div>
+			<div>
+				<label class="block text-xs text-gray-400 mb-1">{ i18n.T(ctx, "slicer.anti_aliasing") }</label>
+				<select name="anti_aliasing" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+					<option value="1" if settings.AntiAliasing == 1 { selected }>Off</option>
+					<option value="2" if settings.AntiAliasing == 2 { selected }>2x</option>
+					<option value="4" if settings.AntiAliasing == 4 { selected }>4x</option>
+					<option value="8" if settings.AntiAliasing == 8 { selected }>8x</option>
+				</select>
+			</div>
+		</div>
+	</div>
+}
+
+templ SliceProgress(job *models.SliceJob) {
+	<div
+		if job.Status != "complete" && job.Status != "error" {
+			hx-get={ fmt.Sprintf("/api/slicer/status/%s", job.ID) }
+			hx-trigger="every 1s"
+			hx-swap="outerHTML"
+		}
+	>
+		if job.Status == "error" {
+			<div class="bg-red-900/30 border border-red-700 rounded-lg p-3">
+				<p class="text-red-400 text-sm font-medium">{ i18n.T(ctx, "slicer.error") }</p>
+				<p class="text-red-300 text-xs mt-1">{ job.Message }</p>
+			</div>
+		} else {
+			<div class="space-y-2">
+				<div class="flex justify-between text-xs text-gray-400">
+					<span>{ job.Message }</span>
+					<span>{ fmt.Sprintf("%d%%", job.Progress) }</span>
+				</div>
+				<div class="w-full bg-gray-700 rounded-full h-2">
+					<div class="bg-indigo-600 h-2 rounded-full transition-all duration-300" style={ fmt.Sprintf("width: %d%%", job.Progress) }></div>
+				</div>
+				if job.TotalLayers > 0 {
+					<p class="text-xs text-gray-500 text-center">
+						{ i18n.T(ctx, "slicer.slicing_layer", job.CurrentLayer, job.TotalLayers) }
+					</p>
+				}
+			</div>
+		}
+	</div>
+}
+
+templ SliceComplete(job *models.SliceJob, fileName string) {
+	<div class="bg-green-900/30 border border-green-700 rounded-lg p-4 text-center">
+		<svg class="mx-auto h-8 w-8 text-green-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+			<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+		</svg>
+		<p class="text-green-400 text-sm font-medium mb-3">{ i18n.T(ctx, "slicer.complete") }</p>
+		if job.TotalLayers > 0 {
+			<p class="text-gray-400 text-xs mb-3">{ fmt.Sprintf("%d layers", job.TotalLayers) }</p>
+		}
+		<a
+			href={ templ.SafeURL(fmt.Sprintf("/api/slicer/download/%s", job.ID)) }
+			class="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+		>
+			<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+			</svg>
+			{ i18n.T(ctx, "slicer.download") }
+		</a>
+	</div>
+}

@@ -106,6 +106,15 @@ func migrate(db *sql.DB) error {
 		}
 	}
 
+	// Seed printer profiles
+	log.Println("[migrate] seeding printer profiles...")
+	if err := seedPrinterProfiles(db); err != nil {
+		return fmt.Errorf("seed printer profiles: %w", err)
+	}
+	if err := ensurePhotonUltra(db); err != nil {
+		return fmt.Errorf("ensure photon ultra: %w", err)
+	}
+
 	// Seed default feedback categories if table is empty
 	log.Println("[migrate] seeding feedback categories...")
 	if err := seedFeedbackCategories(db); err != nil {
@@ -177,6 +186,89 @@ func seedRoles(db *sql.DB) error {
 		WHERE NOT EXISTS (SELECT 1 FROM roles WHERE name = v.name)
 	`)
 	return err
+}
+
+func seedPrinterProfiles(db *sql.DB) error {
+	// Only seed if no profiles exist
+	var count int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM printer_profiles`).Scan(&count); err != nil {
+		return err
+	}
+	if count > 0 {
+		return nil
+	}
+
+	type profile struct {
+		name        string
+		width, depth, height float64
+		resX, resY  int
+		pixelUM     float64
+	}
+
+	profiles := []profile{
+		{"Photon Mono", 130, 80, 165, 2560, 1620, 51},
+		{"Photon Mono X", 192, 120, 245, 3840, 2400, 50},
+		{"Photon Mono X 6Ks", 196, 122, 200, 5760, 3600, 34},
+		{"Photon Ultra", 102.4, 57.6, 165, 1280, 720, 80},
+		{"Photon M3", 164, 102, 180, 4096, 2560, 40},
+		{"Photon M3 Plus", 197, 122, 245, 5760, 3600, 34},
+		{"Photon M3 Max", 298, 164, 300, 6480, 3600, 46},
+	}
+
+	for _, p := range profiles {
+		var profileID int64
+		err := db.QueryRow(`
+			INSERT INTO printer_profiles (name, manufacturer, build_width_mm, build_depth_mm, build_height_mm, resolution_x, resolution_y, pixel_size_um, is_built_in)
+			VALUES ($1, 'Anycubic', $2, $3, $4, $5, $6, $7, TRUE)
+			RETURNING id`,
+			p.name, p.width, p.depth, p.height, p.resX, p.resY, p.pixelUM,
+		).Scan(&profileID)
+		if err != nil {
+			return fmt.Errorf("insert profile %s: %w", p.name, err)
+		}
+
+		_, err = db.Exec(`
+			INSERT INTO print_settings (name, profile_id, layer_height_mm, exposure_time_s, bottom_exposure_s, bottom_layers, lift_height_mm, lift_speed_mmps, retract_speed_mmps, anti_aliasing, is_default)
+			VALUES ('Default', $1, 0.05, 2.0, 30.0, 5, 6.0, 2.0, 4.0, 1, TRUE)`,
+			profileID,
+		)
+		if err != nil {
+			return fmt.Errorf("insert default settings for %s: %w", p.name, err)
+		}
+	}
+
+	log.Printf("[migrate] seeded %d printer profiles with default settings", len(profiles))
+	return nil
+}
+
+// ensurePhotonUltra adds the Photon Ultra profile if it doesn't exist (for DBs seeded before it was added).
+func ensurePhotonUltra(db *sql.DB) error {
+	var exists int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM printer_profiles WHERE name = 'Photon Ultra' AND manufacturer = 'Anycubic'`).Scan(&exists); err != nil {
+		return err
+	}
+	if exists > 0 {
+		return nil
+	}
+
+	var profileID int64
+	err := db.QueryRow(`
+		INSERT INTO printer_profiles (name, manufacturer, build_width_mm, build_depth_mm, build_height_mm, resolution_x, resolution_y, pixel_size_um, is_built_in)
+		VALUES ('Photon Ultra', 'Anycubic', 102.4, 57.6, 165, 1280, 720, 80, TRUE)
+		RETURNING id`).Scan(&profileID)
+	if err != nil {
+		return err
+	}
+
+	_, err = db.Exec(`
+		INSERT INTO print_settings (name, profile_id, layer_height_mm, exposure_time_s, bottom_exposure_s, bottom_layers, lift_height_mm, lift_speed_mmps, retract_speed_mmps, anti_aliasing, is_default)
+		VALUES ('Default', $1, 0.05, 2.0, 30.0, 5, 6.0, 2.0, 4.0, 1, TRUE)`, profileID)
+	if err != nil {
+		return err
+	}
+
+	log.Println("[migrate] added Photon Ultra profile")
+	return nil
 }
 
 func seedFeedbackCategories(db *sql.DB) error {

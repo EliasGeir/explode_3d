@@ -15,6 +15,7 @@ import (
 	authmw "3dmodels/internal/middleware"
 	"3dmodels/internal/repository"
 	"3dmodels/internal/scanner"
+	"3dmodels/internal/slicer"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -57,10 +58,13 @@ func main() {
 	tagHandler := handlers.NewTagHandler(tagRepo)
 	authorHandler := handlers.NewAuthorHandler(authorRepo)
 	scanHandler := handlers.NewScanHandler(sc)
-	settingsHandler := handlers.NewSettingsHandler(settingsRepo, sc, userRepo)
+	slicerRepo := repository.NewSlicerRepository(db)
+	settingsHandler := handlers.NewSettingsHandler(settingsRepo, sc, userRepo, slicerRepo)
 	categoryHandler := handlers.NewCategoryHandler(categoryRepo)
 	authHandler := handlers.NewAuthHandler(userRepo, cfg.JWTSecret)
 	feedbackHandler := handlers.NewFeedbackHandler(feedbackRepo)
+	slicerEngine := slicer.NewEngine()
+	slicerHandler := handlers.NewSlicerHandler(slicerRepo, modelRepo, slicerEngine, cfg.ScanPath)
 	langHandler := handlers.NewLangHandler()
 
 	r := chi.NewRouter()
@@ -105,6 +109,18 @@ func main() {
 		r.Post("/api/models/{id}/favorite", favoritesHandler.Add)
 		r.Delete("/api/models/{id}/favorite", favoritesHandler.Remove)
 
+		// Slicer
+		r.Get("/slicer", slicerHandler.Page)
+		r.Get("/api/slicer/profiles", slicerHandler.ListProfiles)
+		r.Post("/api/slicer/profiles", slicerHandler.CreateProfile)
+		r.Put("/api/slicer/profiles/{id}", slicerHandler.UpdateProfile)
+		r.Delete("/api/slicer/profiles/{id}", slicerHandler.DeleteProfile)
+		r.Get("/api/slicer/settings/{profileId}", slicerHandler.GetSettings)
+		r.Put("/api/slicer/settings/{id}", slicerHandler.UpdateSettings)
+		r.Post("/api/slicer/slice", slicerHandler.StartSlice)
+		r.Get("/api/slicer/status/{jobId}", slicerHandler.SliceStatus)
+		r.Get("/api/slicer/download/{jobId}", slicerHandler.Download)
+
 		// API - Models
 		r.Get("/api/models", modelHandler.List)
 		r.Put("/api/models/{id}", modelHandler.Update)
@@ -145,12 +161,12 @@ func main() {
 		r.Get("/api/feedback/modal", feedbackHandler.Modal)
 		r.Post("/api/feedback", feedbackHandler.Submit)
 
+		// Settings page: accessible to all authenticated users (tabs filtered by role)
+		r.Get("/settings", settingsHandler.Page)
+
 		// Sezione Admin — solo ROLE_ADMIN
 		r.Group(func(r chi.Router) {
 			r.Use(authmw.RequireRole("ROLE_ADMIN"))
-
-			// Settings page + API
-			r.Get("/settings", settingsHandler.Page)
 			r.Post("/api/settings/scan", settingsHandler.ForceScan)
 			r.Put("/api/settings", settingsHandler.SaveSettings)
 			r.Put("/api/settings/scanner-depth", settingsHandler.SaveScannerDepth)

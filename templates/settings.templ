@@ -17,6 +17,7 @@ type SettingsData struct {
 	ExcludedPaths      []string
 	Users              []models.User
 	AllRoles           []models.Role
+	PrinterProfiles    []models.PrinterProfile
 	ActiveTab          string
 	Username           string
 	IsAdmin            bool
@@ -33,40 +34,52 @@ templ settingsContent(data SettingsData) {
 		<!-- Tabs -->
 		<div class="border-b border-gray-700">
 			<nav class="flex space-x-4" aria-label="Tabs">
+				if data.IsAdmin {
+					<a
+						href="/settings?tab=scanner"
+						class={ "px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors",
+							templ.KV("border-indigo-500 text-indigo-400", data.ActiveTab == "scanner"),
+							templ.KV("border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-600", data.ActiveTab != "scanner") }
+					>
+						{ i18n.T(ctx, "settings.tab_scanner") }
+					</a>
+					<a
+						href="/settings?tab=paths"
+						class={ "px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors",
+							templ.KV("border-indigo-500 text-indigo-400", data.ActiveTab == "paths"),
+							templ.KV("border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-600", data.ActiveTab != "paths") }
+					>
+						{ i18n.T(ctx, "settings.tab_paths") }
+					</a>
+					<a
+						href="/settings?tab=users"
+						class={ "px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors",
+							templ.KV("border-indigo-500 text-indigo-400", data.ActiveTab == "users"),
+							templ.KV("border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-600", data.ActiveTab != "users") }
+					>
+						{ i18n.T(ctx, "settings.tab_users") }
+					</a>
+				}
 				<a
-					href="/settings?tab=scanner"
+					href="/settings?tab=printers"
 					class={ "px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors",
-						templ.KV("border-indigo-500 text-indigo-400", data.ActiveTab == "scanner"),
-						templ.KV("border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-600", data.ActiveTab != "scanner") }
+						templ.KV("border-indigo-500 text-indigo-400", data.ActiveTab == "printers"),
+						templ.KV("border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-600", data.ActiveTab != "printers") }
 				>
-					{ i18n.T(ctx, "settings.tab_scanner") }
-				</a>
-				<a
-					href="/settings?tab=paths"
-					class={ "px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors",
-						templ.KV("border-indigo-500 text-indigo-400", data.ActiveTab == "paths"),
-						templ.KV("border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-600", data.ActiveTab != "paths") }
-				>
-					{ i18n.T(ctx, "settings.tab_paths") }
-				</a>
-				<a
-					href="/settings?tab=users"
-					class={ "px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors",
-						templ.KV("border-indigo-500 text-indigo-400", data.ActiveTab == "users"),
-						templ.KV("border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-600", data.ActiveTab != "users") }
-				>
-					{ i18n.T(ctx, "settings.tab_users") }
+					{ i18n.T(ctx, "settings.tab_printers") }
 				</a>
 			</nav>
 		</div>
 
 		<!-- Tab Content -->
-		if data.ActiveTab == "scanner" {
+		if data.ActiveTab == "scanner" && data.IsAdmin {
 			@scannerTab(data)
-		} else if data.ActiveTab == "paths" {
+		} else if data.ActiveTab == "paths" && data.IsAdmin {
 			@pathsTab(data)
-		} else if data.ActiveTab == "users" {
+		} else if data.ActiveTab == "users" && data.IsAdmin {
 			@usersTab(data)
+		} else if data.ActiveTab == "printers" {
+			@printerProfilesTab(data)
 		}
 	</div>
 }
@@ -530,4 +543,227 @@ templ ExcludedPathsList(paths []string) {
 
 templ ScanStarted(status models.ScanStatus) {
 	@ScannerStatus(status)
+}
+
+templ printerProfilesTab(data SettingsData) {
+	<div class="space-y-8">
+		<!-- Existing Profiles -->
+		<div class="bg-gray-800 border border-gray-700 rounded-lg p-6 space-y-4">
+			<h2 class="text-lg font-semibold text-white">{ i18n.T(ctx, "settings.printer_profiles") }</h2>
+			<p class="text-sm text-gray-400">{ i18n.T(ctx, "settings.printer_profiles_desc") }</p>
+			<div id="printer-profiles-list">
+				@PrinterProfilesList(data.PrinterProfiles)
+			</div>
+		</div>
+
+		<!-- Add New Profile -->
+		<div class="bg-gray-800 border border-gray-700 rounded-lg p-6 space-y-4">
+			<h2 class="text-lg font-semibold text-white">{ i18n.T(ctx, "settings.add_printer_profile") }</h2>
+			<div id="add-profile-section">
+				@PrinterProfileForm(nil, "")
+			</div>
+		</div>
+	</div>
+}
+
+templ PrinterProfilesList(profiles []models.PrinterProfile) {
+	if len(profiles) == 0 {
+		<p class="text-sm text-gray-500">{ i18n.T(ctx, "settings.no_printer_profiles") }</p>
+	} else {
+		<div class="space-y-3">
+			for _, p := range profiles {
+				<div class="bg-gray-750 border border-gray-700 rounded-lg p-4" id={ fmt.Sprintf("profile-row-%d", p.ID) }>
+					<div class="flex items-start justify-between gap-4">
+						<div class="flex-1 min-w-0">
+							<div class="flex items-center gap-3 mb-1">
+								<span class="font-medium text-white">{ p.Name }</span>
+								if p.Manufacturer != "" {
+									<span class="text-xs text-gray-400">{ p.Manufacturer }</span>
+								}
+								if p.IsBuiltIn {
+									<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-700 text-gray-300 border border-gray-600">
+										{ i18n.T(ctx, "settings.built_in") }
+									</span>
+								} else {
+									<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-900 text-indigo-300 border border-indigo-700">
+										{ i18n.T(ctx, "slicer.custom_profile") }
+									</span>
+								}
+							</div>
+							<div class="text-xs text-gray-500 mt-1">
+								{ fmt.Sprintf("%.1f x %.1f x %.1f mm", p.BuildWidthMM, p.BuildDepthMM, p.BuildHeightMM) }
+								{ " | " }
+								{ fmt.Sprintf("%d x %d px", p.ResolutionX, p.ResolutionY) }
+								{ " | " }
+								{ fmt.Sprintf("%.0f um", p.PixelSizeUM) }
+							</div>
+						</div>
+						<div class="flex items-center gap-2 flex-shrink-0">
+							if !p.IsBuiltIn {
+								<button
+									data-toggle-edit={ fmt.Sprintf("%d", p.ID) }
+									class="text-xs text-gray-400 hover:text-indigo-400 transition-colors px-2 py-1 rounded hover:bg-gray-700 toggle-edit-btn"
+								>
+									{ i18n.T(ctx, "slicer.edit_profile") }
+								</button>
+								<button
+									hx-delete={ fmt.Sprintf("/api/slicer/profiles/%d", p.ID) }
+									hx-target="#printer-profiles-list"
+									hx-swap="innerHTML"
+									hx-confirm={ i18n.T(ctx, "slicer.delete_profile_confirm") }
+									class="text-xs text-gray-500 hover:text-red-400 transition-colors px-2 py-1 rounded hover:bg-gray-700"
+								>
+									{ i18n.T(ctx, "slicer.delete_profile") }
+								</button>
+							}
+						</div>
+					</div>
+					<!-- Inline edit form (hidden by default) -->
+					if !p.IsBuiltIn {
+						<div id={ fmt.Sprintf("edit-profile-%d", p.ID) } class="hidden mt-4 pt-4 border-t border-gray-700">
+							<form
+								hx-put={ fmt.Sprintf("/api/slicer/profiles/%d", p.ID) }
+								hx-target="#printer-profiles-list"
+								hx-swap="innerHTML"
+								class="space-y-3"
+							>
+								<div class="grid grid-cols-2 gap-3">
+									<div>
+										<label class="block text-xs text-gray-400 mb-1">{ i18n.T(ctx, "slicer.profile_name") }</label>
+										<input type="text" name="name" value={ p.Name } required
+											class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"/>
+									</div>
+									<div>
+										<label class="block text-xs text-gray-400 mb-1">{ i18n.T(ctx, "slicer.manufacturer") }</label>
+										<input type="text" name="manufacturer" value={ p.Manufacturer }
+											class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"/>
+									</div>
+								</div>
+								<div class="grid grid-cols-3 gap-3">
+									<div>
+										<label class="block text-xs text-gray-400 mb-1">{ i18n.T(ctx, "slicer.build_width") }</label>
+										<input type="number" name="build_width_mm" value={ fmtFloat(p.BuildWidthMM) } step="0.1" required
+											class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"/>
+									</div>
+									<div>
+										<label class="block text-xs text-gray-400 mb-1">{ i18n.T(ctx, "slicer.build_depth") }</label>
+										<input type="number" name="build_depth_mm" value={ fmtFloat(p.BuildDepthMM) } step="0.1" required
+											class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"/>
+									</div>
+									<div>
+										<label class="block text-xs text-gray-400 mb-1">{ i18n.T(ctx, "slicer.build_height") }</label>
+										<input type="number" name="build_height_mm" value={ fmtFloat(p.BuildHeightMM) } step="0.1" required
+											class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"/>
+									</div>
+								</div>
+								<div class="grid grid-cols-3 gap-3">
+									<div>
+										<label class="block text-xs text-gray-400 mb-1">{ i18n.T(ctx, "slicer.resolution_x") }</label>
+										<input type="number" name="resolution_x" value={ fmt.Sprintf("%d", p.ResolutionX) } required
+											class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"/>
+									</div>
+									<div>
+										<label class="block text-xs text-gray-400 mb-1">{ i18n.T(ctx, "slicer.resolution_y") }</label>
+										<input type="number" name="resolution_y" value={ fmt.Sprintf("%d", p.ResolutionY) } required
+											class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"/>
+									</div>
+									<div>
+										<label class="block text-xs text-gray-400 mb-1">{ i18n.T(ctx, "slicer.pixel_size") }</label>
+										<input type="number" name="pixel_size_um" value={ fmtFloat(p.PixelSizeUM) } step="1" required
+											class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"/>
+									</div>
+								</div>
+								<div class="flex justify-end gap-2">
+									<button type="button" data-toggle-edit={ fmt.Sprintf("%d", p.ID) }
+										class="text-xs text-gray-400 hover:text-gray-300 px-3 py-1.5 rounded hover:bg-gray-700 transition-colors toggle-edit-btn">
+										{ i18n.T(ctx, "common.cancel") }
+									</button>
+									<button type="submit"
+										class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded text-xs font-medium transition-colors">
+										{ i18n.T(ctx, "common.save") }
+									</button>
+								</div>
+							</form>
+						</div>
+					}
+				</div>
+			}
+		</div>
+	}
+	<script>
+		document.addEventListener('click', function(e) {
+			var btn = e.target.closest('[data-toggle-edit]');
+			if (btn) {
+				var id = btn.getAttribute('data-toggle-edit');
+				var el = document.getElementById('edit-profile-' + id);
+				if (el) el.classList.toggle('hidden');
+			}
+		});
+	</script>
+}
+
+templ PrinterProfileForm(profile *models.PrinterProfile, errMsg string) {
+	if errMsg != "" {
+		<div class="bg-red-900/50 border border-red-700 text-red-300 px-4 py-3 rounded-lg mb-4 text-sm">
+			{ errMsg }
+		</div>
+	}
+	<form
+		hx-post="/api/slicer/profiles"
+		hx-target="#printer-profiles-list"
+		hx-swap="innerHTML"
+		class="space-y-4"
+		hx-on::after-request="if(event.detail.successful) this.reset()"
+	>
+		<div class="grid grid-cols-2 gap-4">
+			<div>
+				<label class="block text-sm font-medium text-gray-300 mb-1">{ i18n.T(ctx, "slicer.profile_name") }</label>
+				<input type="text" name="name" required placeholder="My Printer"
+					class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"/>
+			</div>
+			<div>
+				<label class="block text-sm font-medium text-gray-300 mb-1">{ i18n.T(ctx, "slicer.manufacturer") }</label>
+				<input type="text" name="manufacturer" placeholder="Anycubic"
+					class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"/>
+			</div>
+		</div>
+		<div class="grid grid-cols-3 gap-4">
+			<div>
+				<label class="block text-sm font-medium text-gray-300 mb-1">{ i18n.T(ctx, "slicer.build_width") }</label>
+				<input type="number" name="build_width_mm" step="0.1" required placeholder="130"
+					class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"/>
+			</div>
+			<div>
+				<label class="block text-sm font-medium text-gray-300 mb-1">{ i18n.T(ctx, "slicer.build_depth") }</label>
+				<input type="number" name="build_depth_mm" step="0.1" required placeholder="80"
+					class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"/>
+			</div>
+			<div>
+				<label class="block text-sm font-medium text-gray-300 mb-1">{ i18n.T(ctx, "slicer.build_height") }</label>
+				<input type="number" name="build_height_mm" step="0.1" required placeholder="165"
+					class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"/>
+			</div>
+		</div>
+		<div class="grid grid-cols-3 gap-4">
+			<div>
+				<label class="block text-sm font-medium text-gray-300 mb-1">{ i18n.T(ctx, "slicer.resolution_x") }</label>
+				<input type="number" name="resolution_x" required placeholder="2560"
+					class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"/>
+			</div>
+			<div>
+				<label class="block text-sm font-medium text-gray-300 mb-1">{ i18n.T(ctx, "slicer.resolution_y") }</label>
+				<input type="number" name="resolution_y" required placeholder="1620"
+					class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"/>
+			</div>
+			<div>
+				<label class="block text-sm font-medium text-gray-300 mb-1">{ i18n.T(ctx, "slicer.pixel_size") }</label>
+				<input type="number" name="pixel_size_um" step="1" required placeholder="51"
+					class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"/>
+			</div>
+		</div>
+		<button type="submit"
+			class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+			{ i18n.T(ctx, "settings.add_printer_profile") }
+		</button>
+	</form>
 }

@@ -1,6 +1,48 @@
 package models
 
-import "time"
+import (
+	"time"
+)
+
+type PrinterProfile struct {
+	ID            int64     `json:"id"`
+	Name          string    `json:"name"`
+	Manufacturer  string    `json:"manufacturer"`
+	BuildWidthMM  float64   `json:"build_width_mm"`
+	BuildDepthMM  float64   `json:"build_depth_mm"`
+	BuildHeightMM float64   `json:"build_height_mm"`
+	ResolutionX   int       `json:"resolution_x"`
+	ResolutionY   int       `json:"resolution_y"`
+	PixelSizeUM   float64   `json:"pixel_size_um"`
+	IsBuiltIn     bool      `json:"is_built_in"`
+	CreatedAt     time.Time `json:"created_at"`
+}
+
+type PrintSettings struct {
+	ID               int64     `json:"id"`
+	Name             string    `json:"name"`
+	ProfileID        int64     `json:"profile_id"`
+	LayerHeightMM    float64   `json:"layer_height_mm"`
+	ExposureTimeS    float64   `json:"exposure_time_s"`
+	BottomExposureS  float64   `json:"bottom_exposure_s"`
+	BottomLayers     int       `json:"bottom_layers"`
+	LiftHeightMM     float64   `json:"lift_height_mm"`
+	LiftSpeedMMPS    float64   `json:"lift_speed_mmps"`
+	RetractSpeedMMPS float64   `json:"retract_speed_mmps"`
+	AntiAliasing     int       `json:"anti_aliasing"`
+	IsDefault        bool      `json:"is_default"`
+	CreatedAt        time.Time `json:"created_at"`
+}
+
+type SliceJob struct {
+	ID           string `json:"id"`
+	Status       string `json:"status"` // pending, slicing, encoding, complete, error
+	Progress     int    `json:"progress"`
+	TotalLayers  int    `json:"total_layers"`
+	CurrentLayer int    `json:"current_layer"`
+	Message      string `json:"message"`
+	OutputPath   string `json:"-"`
+}
 
 type Author struct {
 	ID        int64     `json:"id"`

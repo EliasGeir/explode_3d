@@ -135,6 +135,19 @@ func isViewableExt(ext string) bool {
 	return e == ".stl" || e == ".obj"
 }
 
+func isSTLFile(ext string) bool {
+	return strings.ToLower(ext) == ".stl"
+}
+
+func hasSTLFiles(files []models.ModelFile) bool {
+	for _, f := range files {
+		if isSTLFile(f.FileExt) && !isHiddenFile(f.FileName) {
+			return true
+		}
+	}
+	return false
+}
+
 func viewerIndexOf(f models.ModelFile, files []models.ModelFile) int {
 	idx := 0
 	for _, ff := range files {
@@ -352,11 +365,26 @@ templ ModelDetailPage(data ModelDetailData) {
 												class="file-list-item flex items-center justify-between text-sm p-1.5 rounded cursor-pointer hover:bg-gray-700 transition-colors"
 											>
 												<div class="flex items-center space-x-2 min-w-0">
+													if isSTLFile(f.FileExt) {
+														<input type="checkbox" class="stl-checkbox rounded border-gray-600 text-indigo-600 focus:ring-indigo-500 bg-gray-700 flex-shrink-0" value={ fmt.Sprintf("%d", f.ID) } onclick="event.stopPropagation(); updateSliceButton()"/>
+													}
 													<span class="px-2 py-0.5 bg-indigo-600/30 text-indigo-300 rounded text-xs uppercase flex-shrink-0">{ f.FileExt }</span>
 													<span class="text-gray-300 truncate">{ f.FileName }</span>
 												</div>
 												<div class="flex items-center gap-2 flex-shrink-0 ml-2">
 													<span class="text-gray-500 text-xs">{ formatSize(f.FileSize) }</span>
+													if isSTLFile(f.FileExt) {
+														<a
+															href={ templ.SafeURL(fmt.Sprintf("/slicer?files=%d&model_id=%d", f.ID, data.Model.ID)) }
+															onclick="event.stopPropagation()"
+															class="text-gray-500 hover:text-purple-400 transition-colors"
+															title={ i18n.T(ctx, "slicer.slice_file") }
+														>
+															<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+																<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+															</svg>
+														</a>
+													}
 													<a
 														href={ templ.SafeURL(fileURL(f.FilePath)) }
 														download={ f.FileName }
@@ -396,6 +424,22 @@ templ ModelDetailPage(data ModelDetailData) {
 							</div>
 						}
 					</div>
+					<!-- Slice Selected button -->
+					if hasSTLFiles(data.Model.Files) {
+						<div class="mt-3 pt-3 border-t border-gray-700">
+							<button
+								id="slice-selected-btn"
+								data-model-id={ fmt.Sprintf("%d", data.Model.ID) }
+								disabled
+								class="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-700 disabled:text-gray-500 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+							>
+								<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+								</svg>
+								{ i18n.T(ctx, "slicer.slice_selected") }
+							</button>
+						</div>
+					}
 				</div>
 			}
 			<!-- Path info -->
@@ -445,6 +489,27 @@ templ ModelDetailPage(data ModelDetailData) {
 				}
 			}
 		});
+
+		function updateSliceButton() {
+			var btn = document.getElementById('slice-selected-btn');
+			if (!btn) return;
+			var checked = document.querySelectorAll('.stl-checkbox:checked');
+			btn.disabled = checked.length === 0;
+		}
+
+		(function() {
+			var btn = document.getElementById('slice-selected-btn');
+			if (!btn) return;
+			btn.addEventListener('click', function() {
+				var ids = [];
+				document.querySelectorAll('.stl-checkbox:checked').forEach(function(cb) {
+					ids.push(cb.value);
+				});
+				if (ids.length > 0) {
+					window.location.href = '/slicer?files=' + ids.join(',') + '&model_id=' + btn.dataset.modelId;
+				}
+			});
+		})();
 	</script>
 }
 

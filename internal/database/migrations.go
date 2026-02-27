@@ -113,6 +113,36 @@ CREATE TABLE IF NOT EXISTS user_favorites (
 CREATE INDEX IF NOT EXISTS idx_user_favorites_user ON user_favorites(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_favorites_model ON user_favorites(model_id);
 
+CREATE TABLE IF NOT EXISTS printer_profiles (
+    id SERIAL PRIMARY KEY,
+    name TEXT NOT NULL,
+    manufacturer TEXT NOT NULL DEFAULT '',
+    build_width_mm DOUBLE PRECISION NOT NULL,
+    build_depth_mm DOUBLE PRECISION NOT NULL,
+    build_height_mm DOUBLE PRECISION NOT NULL,
+    resolution_x INTEGER NOT NULL,
+    resolution_y INTEGER NOT NULL,
+    pixel_size_um DOUBLE PRECISION NOT NULL,
+    is_built_in BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS print_settings (
+    id SERIAL PRIMARY KEY,
+    name TEXT NOT NULL,
+    profile_id INTEGER NOT NULL REFERENCES printer_profiles(id) ON DELETE CASCADE,
+    layer_height_mm DOUBLE PRECISION NOT NULL DEFAULT 0.05,
+    exposure_time_s DOUBLE PRECISION NOT NULL DEFAULT 2.0,
+    bottom_exposure_s DOUBLE PRECISION NOT NULL DEFAULT 30.0,
+    bottom_layers INTEGER NOT NULL DEFAULT 5,
+    lift_height_mm DOUBLE PRECISION NOT NULL DEFAULT 6.0,
+    lift_speed_mmps DOUBLE PRECISION NOT NULL DEFAULT 2.0,
+    retract_speed_mmps DOUBLE PRECISION NOT NULL DEFAULT 4.0,
+    anti_aliasing INTEGER NOT NULL DEFAULT 1,
+    is_default BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS roles (
     id SERIAL PRIMARY KEY,
     name TEXT NOT NULL UNIQUE,
