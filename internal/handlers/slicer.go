@@ -142,6 +142,7 @@ func (h *SlicerHandler) CreateProfile(w http.ResponseWriter, r *http.Request) {
 		ResolutionX:   parseInt(r.FormValue("resolution_x")),
 		ResolutionY:   parseInt(r.FormValue("resolution_y")),
 		PixelSizeUM:   parseFloat(r.FormValue("pixel_size_um")),
+		FileFormat:    r.FormValue("file_format"),
 	}
 
 	if err := h.slicerRepo.CreateProfile(p); err != nil {
@@ -194,6 +195,7 @@ func (h *SlicerHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 		ResolutionX:   parseInt(r.FormValue("resolution_x")),
 		ResolutionY:   parseInt(r.FormValue("resolution_y")),
 		PixelSizeUM:   parseFloat(r.FormValue("pixel_size_um")),
+		FileFormat:    r.FormValue("file_format"),
 	}
 
 	if err := h.slicerRepo.UpdateProfile(p); err != nil {
@@ -410,7 +412,8 @@ func (h *SlicerHandler) SliceStatus(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if job.Status == "complete" {
-		templates.SliceComplete(job, "model.photon").Render(r.Context(), w)
+		fileName := fmt.Sprintf("model.%s", job.Extension)
+		templates.SliceComplete(job, fileName).Render(r.Context(), w)
 		return
 	}
 
@@ -419,14 +422,21 @@ func (h *SlicerHandler) SliceStatus(w http.ResponseWriter, r *http.Request) {
 
 func (h *SlicerHandler) Download(w http.ResponseWriter, r *http.Request) {
 	jobID := chi.URLParam(r, "jobId")
+	job, err := h.engine.GetJobStatus(jobID)
+	if err != nil {
+		http.Error(w, "Job not found", http.StatusNotFound)
+		return
+	}
+
 	outputPath, err := h.engine.GetOutputFile(jobID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
 
+	fileName := fmt.Sprintf("model.%s", job.Extension)
 	w.Header().Set("Content-Type", "application/octet-stream")
-	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="model.photon"`))
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, fileName))
 	http.ServeFile(w, r, outputPath)
 
 	// Cleanup after download

@@ -250,7 +250,7 @@
     "slicing_layer": "Slicing layer %d/%d",
     "encoding": "Codifica file...",
     "complete": "Slicing completato!",
-    "download": "Scarica .photon",
+    "download": "Scarica File",
     "error": "Errore",
     "build_volume": "Volume: %s x %s x %s mm",
     "resolution": "Risoluzione: %d x %d",
@@ -268,6 +268,7 @@
     "resolution_x": "Risoluzione X (px)",
     "resolution_y": "Risoluzione Y (px)",
     "pixel_size": "Dimensione Pixel (um)",
+    "file_format": "Formato File",
     "save_settings": "Salva Impostazioni",
     "reset_defaults": "Ripristina Default",
     "print_settings": "Impostazioni Stampa",
@@ -275,7 +276,7 @@
     "custom_profile": "Personalizzato",
     "initializing": "Inizializzazione...",
     "parsing_files": "Analisi file STL...",
-    "writing_file": "Scrittura file .photon...",
+    "writing_file": "Scrittura file...",
     "no_files": "Nessun file selezionato. Vai alla pagina dettaglio di un modello e seleziona i file STL da affettare."
   },
   "lang": {

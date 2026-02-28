@@ -142,6 +142,7 @@ templ SlicerPage(data SlicerPageData) {
 						hx-target="#slice-progress"
 						hx-swap="innerHTML"
 						hx-include="#settings-form input, #settings-form select"
+						hx-disabled-elt="find button"
 						id="slice-form"
 					>
 						<input type="hidden" name="file_ids" value={ slicerFileIDs(data.Files) }/>

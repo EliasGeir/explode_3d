@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"image"
+	"log"
 	"math"
 	"os"
 	"path/filepath"
@@ -17,11 +18,13 @@ import (
 type Engine struct {
 	mu   sync.Mutex
 	jobs map[string]*models.SliceJob
+	sem  chan struct{} // Concurrency semaphore
 }
 
 func NewEngine() *Engine {
 	return &Engine{
 		jobs: make(map[string]*models.SliceJob),
+		sem:  make(chan struct{}, 1), // Only 1 concurrent slice job
 	}
 }
 
@@ -44,14 +47,20 @@ func (e *Engine) StartSlice(req SliceRequest) (string, error) {
 	job := &models.SliceJob{
 		ID:      jobID,
 		Status:  "pending",
-		Message: "Initializing...",
+		Message: "Waiting in queue...",
 	}
 
 	e.mu.Lock()
 	e.jobs[jobID] = job
 	e.mu.Unlock()
 
-	go e.sliceWorker(job, req)
+	go func() {
+		// Acquire semaphore
+		e.sem <- struct{}{}
+		defer func() { <-e.sem }()
+
+		e.sliceWorker(job, req)
+	}()
 
 	return jobID, nil
 }
@@ -106,6 +115,13 @@ func (e *Engine) updateJob(job *models.SliceJob, status string, progress int, ms
 }
 
 func (e *Engine) sliceWorker(job *models.SliceJob, req SliceRequest) {
+	// Panic recovery
+	defer func() {
+		if r := recover(); r != nil {
+			e.setError(job, fmt.Sprintf("Internal error: %v", r))
+		}
+	}()
+
 	// Schedule cleanup after 30 minutes
 	go func() {
 		time.Sleep(30 * time.Minute)
@@ -113,20 +129,34 @@ func (e *Engine) sliceWorker(job *models.SliceJob, req SliceRequest) {
 	}()
 
 	// Step 1: Parse all STL files and merge
-	e.updateJob(job, "slicing", 0, "Parsing STL files...")
+	e.updateJob(job, "slicing", 0, "Initializing...")
 
 	var merged *Mesh
+	validFileCount := 0
 	for i, fp := range req.FilePaths {
 		mesh, err := ParseSTL(fp)
 		if err != nil {
-			e.setError(job, fmt.Sprintf("Failed to parse %s: %v", filepath.Base(fp), err))
-			return
+			// Log the error but skip to next file instead of failing
+			log.Printf("Warning: Skipping file %s: %v", filepath.Base(fp), err)
+			continue
 		}
+
+		log.Printf("DEBUG: After parse - File: %s, Bounds: [%.4f,%.4f,%.4f] to [%.4f,%.4f,%.4f], Triangles: %d",
+			filepath.Base(fp),
+			mesh.MinBound[0], mesh.MinBound[1], mesh.MinBound[2],
+			mesh.MaxBound[0], mesh.MaxBound[1], mesh.MaxBound[2],
+			len(mesh.Triangles))
+
+		validFileCount++
 
 		// Center on plate
 		centerX := req.Profile.BuildWidthMM / 2
 		centerY := req.Profile.BuildDepthMM / 2
 		mesh.CenterOnPlate(centerX, centerY)
+
+		log.Printf("DEBUG: After CenterOnPlate - Bounds: [%.4f,%.4f,%.4f] to [%.4f,%.4f,%.4f]",
+			mesh.MinBound[0], mesh.MinBound[1], mesh.MinBound[2],
+			mesh.MaxBound[0], mesh.MaxBound[1], mesh.MaxBound[2])
 
 		if merged == nil {
 			merged = mesh
@@ -134,34 +164,130 @@ func (e *Engine) sliceWorker(job *models.SliceJob, req SliceRequest) {
 			merged.MergeMesh(mesh)
 		}
 
+		log.Printf("DEBUG: After merge - Bounds: [%.4f,%.4f,%.4f] to [%.4f,%.4f,%.4f], Total triangles: %d",
+			merged.MinBound[0], merged.MinBound[1], merged.MinBound[2],
+			merged.MaxBound[0], merged.MaxBound[1], merged.MaxBound[2],
+			len(merged.Triangles))
+
 		pct := int(float64(i+1) / float64(len(req.FilePaths)) * 5) // 0-5% for parsing
-		e.updateJob(job, "slicing", pct, fmt.Sprintf("Parsed %d/%d files", i+1, len(req.FilePaths)))
+		e.updateJob(job, "slicing", pct, fmt.Sprintf("Parsed %d/%d files", validFileCount, len(req.FilePaths)))
 	}
 
-	// Step 2: Calculate layers
+	// Check if any files were successfully parsed
+	if merged == nil {
+		e.setError(job, "No valid STL files could be parsed. Please check the files and try again.")
+		return
+	}
+
+	if validFileCount < len(req.FilePaths) {
+		log.Printf("Warning: Only %d of %d files were valid and will be sliced", validFileCount, len(req.FilePaths))
+	}
+
+	// Step 2: Auto-scale to fit build volume if too large
+	meshWidth := float64(merged.MaxBound[0] - merged.MinBound[0])
+	meshDepth := float64(merged.MaxBound[1] - merged.MinBound[1])
 	meshHeight := float64(merged.MaxBound[2] - merged.MinBound[2])
-	layerHeight := req.Settings.LayerHeightMM
+
+	log.Printf("DEBUG: Final mesh dimensions: W=%.2f, D=%.2f, H=%.2f (Triangles: %d)", 
+		meshWidth, meshDepth, meshHeight, len(merged.Triangles))
+
+	// Validate mesh height is not NaN or Infinite
+	if math.IsNaN(meshHeight) || math.IsInf(meshHeight, 0) {
+		e.setError(job, fmt.Sprintf("Invalid model geometry detected (mesh height is %.2f). The STL file may be corrupted or contain invalid vertex coordinates.", meshHeight))
+		return
+	}
+
+	// Use printer profile limits or a hardcoded safety limit
+	limitX := math.Max(req.Profile.BuildWidthMM, 10.0)
+	limitY := math.Max(req.Profile.BuildDepthMM, 10.0)
+	limitZ := math.Max(req.Profile.BuildHeightMM, 10.0)
+	
+	// Safety cap to prevent memory issues
+	const safetyCapMM = 1000.0
+	if limitZ > safetyCapMM {
+		limitZ = safetyCapMM
+	}
+
+	scaleX := 1.0
+	if meshWidth > limitX {
+		scaleX = limitX / meshWidth
+	}
+	scaleY := 1.0
+	if meshDepth > limitY {
+		scaleY = limitY / meshDepth
+	}
+	scaleZ := 1.0
+	if meshHeight > limitZ {
+		scaleZ = limitZ / meshHeight
+	}
+
+	minScale := math.Min(scaleX, math.Min(scaleY, scaleZ))
+	
+	// If it's too large, it might be in micrometers instead of millimeters.
+	// If the model is > build volume, we automatically scale it down to fit.
+	if minScale < 0.999 || meshHeight > limitZ {
+		log.Printf("Auto-scaling model: current height=%.2fmm, max height=%.2fmm, scale factor=%.6f", meshHeight, limitZ, minScale)
+		merged.Scale(float32(minScale))
+		
+		// Re-center on plate after scaling
+		centerX := req.Profile.BuildWidthMM / 2
+		centerY := req.Profile.BuildDepthMM / 2
+		merged.CenterOnPlate(centerX, centerY)
+		
+		meshHeight = float64(merged.MaxBound[2] - merged.MinBound[2])
+		log.Printf("Scaled model height: %.4f (MinBound[2]=%.4f, MaxBound[2]=%.4f)", 
+			meshHeight, merged.MinBound[2], merged.MaxBound[2])
+	}
 
 	if meshHeight < 0.001 {
-		e.setError(job, fmt.Sprintf("Model has zero height (bounds Z: %.4f to %.4f, %d triangles)",
+		e.setError(job, fmt.Sprintf("Model has zero or negative height (bounds Z: %.4f to %.4f, %d triangles). Check if the STL file is valid.",
 			merged.MinBound[2], merged.MaxBound[2], len(merged.Triangles)))
 		return
 	}
-	if layerHeight < 0.001 {
-		layerHeight = 0.05
+
+	layerHeight := req.Settings.LayerHeightMM
+
+	floatLayers := math.Ceil(meshHeight / layerHeight)
+	if floatLayers > 1000000 {
+		e.setError(job, fmt.Sprintf("Too many layers (%.0f). Please increase layer height or check model scale.", floatLayers))
+		return
 	}
 
-	totalLayers := int(math.Ceil(meshHeight / layerHeight))
+	totalLayers := int(floatLayers)
+	if totalLayers <= 0 {
+		e.setError(job, fmt.Sprintf("Invalid layer count: %d", totalLayers))
+		return
+	}
 
 	e.mu.Lock()
 	job.TotalLayers = totalLayers
 	e.mu.Unlock()
 
-	// Step 3: Slice each layer and RLE encode
-	encodedLayers := make([][]byte, totalLayers)
+	// Step 3: Slice each layer
+	isDLP := req.Profile.FileFormat == "dlp"
+	var encodedLayers [][]byte
+	var dlpLayers []*image.Gray
+
+	if isDLP {
+		dlpLayers = make([]*image.Gray, totalLayers)
+	} else {
+		encodedLayers = make([][]byte, totalLayers)
+	}
+
 	aaLevel := req.Settings.AntiAliasing
 	if aaLevel < 1 {
 		aaLevel = 1
+	}
+	if aaLevel > 8 {
+		aaLevel = 8 // Hard limit for safety
+	}
+
+	// Validate resolution * AA to prevent huge allocations
+	maxRes := 65535 // Max dimension
+	if req.Profile.ResolutionX*aaLevel > maxRes || req.Profile.ResolutionY*aaLevel > maxRes {
+		e.setError(job, fmt.Sprintf("Effective resolution (%d x %d) with AA %dx is too high.", 
+			req.Profile.ResolutionX*aaLevel, req.Profile.ResolutionY*aaLevel, aaLevel))
+		return
 	}
 
 	offsetX := req.Profile.BuildWidthMM / 2
@@ -181,7 +307,11 @@ func (e *Engine) sliceWorker(job *models.SliceJob, req SliceRequest) {
 			layerImg = RasterizeLayer(contours, req.Profile, offsetX, offsetY)
 		}
 
-		encodedLayers[i] = RLEEncode(layerImg)
+		if isDLP {
+			dlpLayers[i] = layerImg
+		} else {
+			encodedLayers[i] = RLEEncode(layerImg)
+		}
 
 		e.mu.Lock()
 		job.CurrentLayer = i + 1
@@ -190,37 +320,50 @@ func (e *Engine) sliceWorker(job *models.SliceJob, req SliceRequest) {
 		e.mu.Unlock()
 	}
 
-	// Step 4: Write photon file
-	e.updateJob(job, "encoding", 92, "Writing .photon file...")
+	// Step 4: Write output file
+	ext := "photon"
+	if isDLP {
+		ext = "dlp"
+	}
+	e.updateJob(job, "encoding", 92, fmt.Sprintf("Writing .%s file...", ext))
 
-	tmpFile, err := os.CreateTemp("", "slice-*.photon")
+	tmpFile, err := os.CreateTemp("", "slice-*."+ext)
 	if err != nil {
 		e.setError(job, fmt.Sprintf("Failed to create temp file: %v", err))
 		return
 	}
 
-	header := PhotonHeader{
-		BedXMM:           float32(req.Profile.BuildWidthMM),
-		BedYMM:           float32(req.Profile.BuildDepthMM),
-		BedZMM:           float32(req.Profile.BuildHeightMM),
-		LayerHeightMM:    float32(req.Settings.LayerHeightMM),
-		ExposureS:        float32(req.Settings.ExposureTimeS),
-		BottomExposureS:  float32(req.Settings.BottomExposureS),
-		BottomLayers:     uint32(req.Settings.BottomLayers),
-		ResolutionX:      uint32(req.Profile.ResolutionX),
-		ResolutionY:      uint32(req.Profile.ResolutionY),
-		LayerCount:       uint32(totalLayers),
-		LiftHeightMM:     float32(req.Settings.LiftHeightMM),
-		LiftSpeedMMPS:    float32(req.Settings.LiftSpeedMMPS),
-		RetractSpeedMMPS: float32(req.Settings.RetractSpeedMMPS),
-		AntiAliasing:     uint32(aaLevel),
-	}
+	if isDLP {
+		if err := WriteDLPFile(tmpFile, req.Profile, req.Settings, dlpLayers); err != nil {
+			tmpFile.Close()
+			os.Remove(tmpFile.Name())
+			e.setError(job, fmt.Sprintf("Failed to write DLP file: %v", err))
+			return
+		}
+	} else {
+		header := PhotonHeader{
+			BedXMM:           float32(req.Profile.BuildWidthMM),
+			BedYMM:           float32(req.Profile.BuildDepthMM),
+			BedZMM:           float32(req.Profile.BuildHeightMM),
+			LayerHeightMM:    float32(req.Settings.LayerHeightMM),
+			ExposureS:        float32(req.Settings.ExposureTimeS),
+			BottomExposureS:  float32(req.Settings.BottomExposureS),
+			BottomLayers:     uint32(req.Settings.BottomLayers),
+			ResolutionX:      uint32(req.Profile.ResolutionX),
+			ResolutionY:      uint32(req.Profile.ResolutionY),
+			LayerCount:       uint32(totalLayers),
+			LiftHeightMM:     float32(req.Settings.LiftHeightMM),
+			LiftSpeedMMPS:    float32(req.Settings.LiftSpeedMMPS),
+			RetractSpeedMMPS: float32(req.Settings.RetractSpeedMMPS),
+			AntiAliasing:     uint32(aaLevel),
+		}
 
-	if err := WritePhotonFile(tmpFile, header, encodedLayers); err != nil {
-		tmpFile.Close()
-		os.Remove(tmpFile.Name())
-		e.setError(job, fmt.Sprintf("Failed to write photon file: %v", err))
-		return
+		if err := WritePhotonFile(tmpFile, header, encodedLayers); err != nil {
+			tmpFile.Close()
+			os.Remove(tmpFile.Name())
+			e.setError(job, fmt.Sprintf("Failed to write photon file: %v", err))
+			return
+		}
 	}
 	tmpFile.Close()
 
@@ -229,6 +372,7 @@ func (e *Engine) sliceWorker(job *models.SliceJob, req SliceRequest) {
 	job.Status = "complete"
 	job.Progress = 100
 	job.Message = "Complete"
+	job.Extension = ext
 	job.OutputPath = tmpFile.Name()
 	e.mu.Unlock()
 }

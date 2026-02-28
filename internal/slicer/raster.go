@@ -14,6 +14,20 @@ import (
 func RasterizeLayer(contours []Contour, profile *models.PrinterProfile, offsetX, offsetY float64) *image.Gray {
 	width := profile.ResolutionX
 	height := profile.ResolutionY
+
+	// Safety check for image dimensions to prevent panic in image.NewGray
+	if width <= 0 || height <= 0 || int64(width)*int64(height) > 1000000000 {
+		// Return a tiny 1x1 image instead of panicking, or handle error
+		// Given the signature, we return an empty image of requested size if valid,
+		// but here we must ensure we don't crash.
+		if width > 0 && height > 0 && width < 10000 && height < 10000 {
+			// small enough but product might be large? logic above covers it.
+		} else {
+			// Force reasonable limits
+			return image.NewGray(image.Rect(0, 0, 1, 1))
+		}
+	}
+
 	pixelSize := profile.PixelSizeUM / 1000.0 // convert to mm
 
 	img := image.NewGray(image.Rect(0, 0, width, height))

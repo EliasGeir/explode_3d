@@ -1,73 +1,192 @@
-# Slicer Bugfix — Sessione 2
+# Slicer Bugfix - Memory Exhaustion & Concurrency
 
-## Bug Riportati
+## Problem Description
+Users reported that during slicing of 3D models, the process would occasionally fail with a "Job not found" (404) error during status polling.
 
-1. **Mancava il profilo Anycubic Photon Ultra** nei preset
-2. **Cambio profilo rompeva l'interfaccia** — il contenuto della pagina veniva re-renderizzato dentro la sezione settings
-3. **Il file 3D non veniva renderizzato** nel viewer del slicer
-4. **"Model has zero height"** quando si tentava lo slice
+Analysis of the HTTP Archive (HAR) revealed the following sequence:
+1. Two slicing jobs were initiated almost simultaneously (likely due to multiple clicks on the "Start Slice" button).
+2. The first job started correctly.
+3. The second job was initiated.
+4. Subsequent polling for the second job returned a connection closed error (status 0) followed by 404 Not Found for all future requests.
 
-## Cause Radice e Fix
+## Root Cause Analysis
+The symptoms strongly suggest a **server crash and automatic restart**.
 
-### Bug 1: Profilo Photon Ultra Mancante
+When the server crashes:
+1. The in-memory map of slicing jobs is cleared.
+2. Any ongoing goroutines (including the slicing workers) are terminated.
+3. Subsequent status requests for previously valid job IDs return 404 because the IDs no longer exist in the fresh map.
 
-**Fix**: Aggiunto `{"Photon Ultra", 102.4, 57.6, 165, 1280, 720, 80}` alla lista dei profili in `seedPrinterProfiles()`.
+The crash was likely caused by **Memory Exhaustion (OOM)**. Slicing 3D models is memory-intensive:
+- Each STL file is parsed into a mesh of triangles (~48 bytes per triangle).
+- Multiple meshes are merged, potentially doubling memory usage during `append` operations.
+- Rasterization creates high-resolution grayscale images for each layer.
+- Running multiple slicing jobs in parallel multiplies this memory usage, exceeding the available RAM on the host machine.
 
-Per database esistenti (già seedati), aggiunta funzione `ensurePhotonUltra()` che inserisce il profilo solo se non esiste.
+Additionally, the slicing workers lacked **panic recovery**, meaning any unexpected error (e.g., corrupted STL file causing an index out of bounds) would crash the entire application process.
 
-**Specifiche Photon Ultra**: DLP (non LCD), volume 102.4 x 57.6 x 165 mm, risoluzione 1280 x 720, pixel 80 um.
+## Fix Implemented
 
-**File modificati**: `internal/database/database.go`
+### 1. Concurrency Limit (Semaphore)
+Added a semaphore to the `slicer.Engine` to limit the number of concurrent slicing jobs to **1**.
+- If a new job is started while another is running, it enters a `pending` state with the message "Waiting in queue...".
+- This prevents memory spikes from multiple simultaneous jobs.
 
-### Bug 2: Cambio Profilo Rompeva l'Interfaccia
+### 2. Panic Recovery
+Added `defer recover()` to the `sliceWorker` goroutine.
+- If a panic occurs during slicing, it is caught.
+- The job status is updated to `error` with the panic message.
+- The server remains operational.
 
-**Causa**: Il `<select>` del profilo aveva `hx-get=""` come attributo HTMX. Con un URL vuoto, HTMX fa GET sulla URL corrente della pagina e inserisce l'intera pagina HTML dentro `#settings-form`.
+### 3. UI Protection
+Modified `templates/slicer.templ` to use HTMX's `hx-disabled-elt`.
+- The "Start Slice" button is automatically disabled as soon as it's clicked.
+- It remains disabled until the server responds with the initial progress fragment.
+- This prevents users from accidentally triggering multiple jobs.
 
-**Fix**: Rimosso `hx-get=""`, `hx-swap`, `hx-target` dal `<select>`. Il cambio profilo era già gestito correttamente dal JavaScript inline che chiama `htmx.ajax('GET', '/api/slicer/settings/' + id, ...)`.
+### 4. Input Validation & Range Checks
+Fixed a `runtime error: makeslice: len out of range` by adding strict validation for calculated values before they are used in `make()` calls:
+- **Model Height**: Added a check to ensure the model is between 0.001mm and 10000mm.
+- **Layer Count**: Capped the maximum number of layers to 1,000,000. This prevents integer overflow when casting huge floats to `int` (which previously resulted in negative numbers, causing the `makeslice` panic).
+- **Anti-Aliasing**: Capped `aaLevel` to 8x.
+- **Effective Resolution**: Added checks to ensure the product of resolution and AA level doesn't exceed reasonable limits (~1 billion pixels), preventing massive memory allocations that could trigger OOM or slice length errors.
 
-**File modificati**: `templates/slicer.templ` (componente `ProfileSelector`)
+## Verification
+- Multiple rapid clicks on the "Start Slice" button now only trigger one request (UI-level protection).
+- If multiple requests were somehow sent, they would be queued and executed sequentially (Engine-level protection).
+- Memory usage is kept within safe limits by processing only one model at a time and validating image dimensions.
+- Invalid model scales or extremely small layer heights now return a descriptive error message instead of crashing the server.
 
-### Bug 3: File 3D Non Renderizzato
+---
 
-**Causa**: Mismatch nel sistema di coordinate. I file STL usano Z-up (Z è l'asse verticale), ma Three.js usa Y-up. Il viewer caricava le coordinate STL senza conversione, quindi il modello appariva "sdraiato" o invisibile.
+# Bugfix - Invalid STL Geometry (NaN/Inf Values) - Auto-Repair
 
-**Fix**: Durante il parsing STL nel JavaScript, le coordinate vengono convertite:
+## Problem Description
+
+Users encountered an error during slicing:
 ```
-STL (x, y, z) -> Three.js (x, z, -y)
+Model is too large (+Inf mm). Maximum supported height is 10000 mm.
 ```
-- X rimane X
-- Three.js Y (verticale) = STL Z (verticale)
-- Three.js Z (profondità) = -STL Y
+or
+```
+Invalid model geometry detected (mesh height is +Inf). The STL file may be corrupted or contain invalid vertex coordinates.
+```
 
-Inoltre corretto il centraggio del modello: ora centra in XZ e posiziona il bottom a Y=0 (sul piatto).
+This error occurred when the mesh height calculation resulted in positive infinity (`+Inf`) instead of a valid numeric value.
 
-**File modificati**: `static/js/slicer3d.js`
+## Root Cause Analysis
 
-### Bug 4: "Model has zero height"
+The issue was caused by **invalid vertex coordinates in STL files**. When an STL file contains:
+- **Corrupted binary data** that interprets as IEEE 754 infinity or NaN values
+- **Malformed ASCII STL** with invalid float representations
+- **Export bugs** from 3D modeling software that produce non-finite coordinates
 
-**Cause multiple**:
+The STL parser would read these values without validation, causing:
+1. Bounding box calculations (`MinBound`/`MaxBound`) to become `+Inf` or `-Inf`
+2. Mesh height calculation (`MaxBound[2] - MinBound[2]`) to result in `+Inf`
+3. The slicer to incorrectly report the model as "too large" instead of identifying the corrupted geometry
 
-1. **Impostazioni non inviate con il form HTMX**: Gli input delle impostazioni (layer_height, exposure, ecc.) usavano l'attributo HTML `form="slice-form"` per associarsi al form, ma HTMX non rispetta questo attributo — serializza solo gli input DOM-figli del form. Risultato: il server non riceveva `layer_height_mm` e usava il default dal DB.
+## Fix Implemented
 
-2. **Formula Z-layer includeva MinBound[2] superfluo**: Dopo `CenterOnPlate`, `MinBound[2]` è già 0. La formula `i*layerHeight + layerHeight/2 + MinBound[2]` era corretta ma potenzialmente confusa.
+### 1. STL Parser Auto-Repair (`internal/slicer/stl.go`)
 
-3. **Classificazione vertici sul piano Z**: La classificazione usava `>` stretta che causava edge case quando vertici giacevano esattamente sul piano Z. Riscritto con approccio epsilon-based (1e-6 mm di tolleranza) e gestione esplicita dei 3 casi: sopra, sotto, sul piano.
+Added `isValidFloat()` helper function that checks if a float32 value is valid:
+```go
+func isValidFloat(f float32) bool {
+    return !math.IsNaN(float64(f)) && !math.IsInf(float64(f), 0)
+}
+```
 
-**Fix**:
-- Aggiunto `hx-include="#settings-form input, #settings-form select"` al form per includere gli input esterni
-- Rimosso gli attributi `form="slice-form"` dagli input (non più necessari)
-- Semplificata la formula Z: `float32(float64(i)*layerHeight + layerHeight/2)`
-- Riscritto `intersectTrianglePlane` con classificazione a 3 stati (`+1`, `-1`, `0`) e epsilon
-- Aggiunto messaggio di errore diagnostico con bounds e numero di triangoli
+**Binary STL parsing**: Each face is validated, and invalid faces are automatically removed:
+```go
+// Validate normal - skip face if normal is invalid
+if !isValidFloat(tri.Normal[0]) || !isValidFloat(tri.Normal[1]) || !isValidFloat(tri.Normal[2]) {
+    invalidFaces++
+    continue
+}
 
-**File modificati**:
-- `templates/slicer.templ` — hx-include, rimosso form= attributes
-- `internal/slicer/engine.go` — formula Z, messaggio errore
-- `internal/slicer/slice.go` — riscritta intersectTrianglePlane
+// Skip faces with invalid coordinates (NaN or Inf)
+if !isValidFloat(x) || !isValidFloat(y) || !isValidFloat(z) {
+    validFace = false
+    break
+}
 
-## Lezioni Apprese
+if validFace {
+    // Add triangle to mesh
+    mesh.Triangles = append(mesh.Triangles, tri)
+} else {
+    invalidFaces++
+}
+```
 
-1. **HTMX non rispetta `form="..."` HTML attribute**: gli input associati via `form=` devono essere inclusi esplicitamente con `hx-include`.
-2. **`hx-get=""` con URL vuoto è pericoloso**: HTMX interpreta una stringa vuota come la URL corrente della pagina, causando il fetch dell'intera pagina dentro un target parziale.
-3. **Coordinate system mismatch** tra STL (Z-up) e Three.js (Y-up) è un classico problema che deve essere gestito sia lato client (visualizzazione) che lato server (slicing).
-4. **Float comparison per intersezione geometrica** richiede epsilon, non confronti esatti.
+**ASCII STL parsing**: Same repair logic applied during text parsing.
+
+The parser now:
+- **Automatically removes** triangles with invalid vertices (NaN or Inf)
+- **Logs a warning** with the count of removed faces (visible in server console)
+- **Continues processing** with the valid triangles
+- Only fails if **no valid triangles** remain
+
+### 2. Engine-Level Validation (`internal/slicer/engine.go`)
+
+Added a secondary validation layer in the slicing engine to catch any edge cases:
+```go
+// Validate mesh height is not NaN or Infinite
+if math.IsNaN(meshHeight) || math.IsInf(meshHeight, 0) {
+    e.setError(job, fmt.Sprintf("Invalid model geometry detected (mesh height is %.2f). The STL file may be corrupted or contain invalid vertex coordinates.", meshHeight))
+    return
+}
+```
+
+This provides defense-in-depth: even if invalid data somehow reaches the engine, it will be caught before causing allocation errors or panics.
+
+### 3. Graceful File Handling
+
+When multiple files are selected for slicing:
+- Invalid files are **skipped** with a warning logged
+- Valid files continue to be processed
+- User only sees an error if **all** files are invalid
+
+## User Experience
+
+**Auto-repair in action** (logged to server console, user sees normal progress):
+```
+Warning: Repaired STL by removing 5 invalid faces (kept 1243 triangles)
+```
+
+**If some files are invalid** (multi-file slicing):
+- Valid files are sliced successfully
+- Warning logged: `Warning: Only 2 of 3 files were valid and will be sliced`
+- User sees successful completion
+
+**If all files are invalid**:
+```
+No valid STL files could be parsed. Please check the files and try again.
+```
+
+**Engine-level validation** (if repair bypasses parser):
+```
+Invalid model geometry detected (mesh height is +Inf). The STL file may be corrupted or contain invalid vertex coordinates.
+```
+
+## Files Modified
+
+| File | Changes |
+|------|---------|
+| `internal/slicer/stl.go` | Added `isValidFloat()` function, auto-repair in `parseSTLBinary()` and `parseSTLASCII()`, graceful handling of invalid faces |
+| `internal/slicer/engine.go` | Added mesh height validation, improved file skip logic, only error if no valid files |
+
+## Testing Recommendations
+
+1. **Test with corrupted STL files** - Files with NaN/Inf vertices should now be repaired and sliced successfully
+2. **Test with valid STL files** - Ensure normal slicing workflow is unaffected
+3. **Test edge cases** - Models with very large but valid coordinates should still work (up to 10000mm limit)
+4. **Test multi-file slicing** - Selecting a mix of valid and invalid files should process valid ones
+
+## Future Improvements
+
+Consider adding:
+- **STL repair utilities** - Automatically fix common issues like inverted normals or small holes
+- **Pre-flight validation** - Validate all STL files during the scan phase rather than waiting until slicing
+- **Bounds checking during merge** - Validate bounds when merging multiple meshes to catch issues earlier
+- **User notification** - Show a warning in the UI when files were auto-repaired

@@ -110,7 +110,7 @@ func main() {
 		r.Delete("/api/models/{id}/favorite", favoritesHandler.Remove)
 
 		// Slicer
-		r.Get("/slicer", slicerHandler.Page)
+		// r.Get("/slicer", slicerHandler.Page)
 		r.Get("/api/slicer/profiles", slicerHandler.ListProfiles)
 		r.Post("/api/slicer/profiles", slicerHandler.CreateProfile)
 		r.Put("/api/slicer/profiles/{id}", slicerHandler.UpdateProfile)

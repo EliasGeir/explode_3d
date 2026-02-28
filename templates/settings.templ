@@ -596,6 +596,8 @@ templ PrinterProfilesList(profiles []models.PrinterProfile) {
 								{ fmt.Sprintf("%d x %d px", p.ResolutionX, p.ResolutionY) }
 								{ " | " }
 								{ fmt.Sprintf("%.0f um", p.PixelSizeUM) }
+								{ " | " }
+								<span class="uppercase text-indigo-400 font-medium">{ p.FileFormat }</span>
 							</div>
 						</div>
 						<div class="flex items-center gap-2 flex-shrink-0">
@@ -656,7 +658,7 @@ templ PrinterProfilesList(profiles []models.PrinterProfile) {
 											class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"/>
 									</div>
 								</div>
-								<div class="grid grid-cols-3 gap-3">
+								<div class="grid grid-cols-4 gap-3">
 									<div>
 										<label class="block text-xs text-gray-400 mb-1">{ i18n.T(ctx, "slicer.resolution_x") }</label>
 										<input type="number" name="resolution_x" value={ fmt.Sprintf("%d", p.ResolutionX) } required
@@ -671,6 +673,13 @@ templ PrinterProfilesList(profiles []models.PrinterProfile) {
 										<label class="block text-xs text-gray-400 mb-1">{ i18n.T(ctx, "slicer.pixel_size") }</label>
 										<input type="number" name="pixel_size_um" value={ fmtFloat(p.PixelSizeUM) } step="1" required
 											class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"/>
+									</div>
+									<div>
+										<label class="block text-xs text-gray-400 mb-1">{ i18n.T(ctx, "slicer.file_format") }</label>
+										<select name="file_format" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+											<option value="photon" selected?={ p.FileFormat == "photon" }>Photon (.photon)</option>
+											<option value="dlp" selected?={ p.FileFormat == "dlp" }>DLP (.dlp)</option>
+										</select>
 									</div>
 								</div>
 								<div class="flex justify-end gap-2">
@@ -744,7 +753,7 @@ templ PrinterProfileForm(profile *models.PrinterProfile, errMsg string) {
 					class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"/>
 			</div>
 		</div>
-		<div class="grid grid-cols-3 gap-4">
+		<div class="grid grid-cols-4 gap-4">
 			<div>
 				<label class="block text-sm font-medium text-gray-300 mb-1">{ i18n.T(ctx, "slicer.resolution_x") }</label>
 				<input type="number" name="resolution_x" required placeholder="2560"
@@ -759,6 +768,13 @@ templ PrinterProfileForm(profile *models.PrinterProfile, errMsg string) {
 				<label class="block text-sm font-medium text-gray-300 mb-1">{ i18n.T(ctx, "slicer.pixel_size") }</label>
 				<input type="number" name="pixel_size_um" step="1" required placeholder="51"
 					class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"/>
+			</div>
+			<div>
+				<label class="block text-sm font-medium text-gray-300 mb-1">{ i18n.T(ctx, "slicer.file_format") }</label>
+				<select name="file_format" class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+					<option value="photon">Photon (.photon)</option>
+					<option value="dlp">DLP (.dlp)</option>
+				</select>
 			</div>
 		</div>
 		<button type="submit"

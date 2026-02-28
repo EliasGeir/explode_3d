@@ -106,6 +106,20 @@ func migrate(db *sql.DB) error {
 		}
 	}
 
+	// Conditional migration: add file_format to printer_profiles if missing
+	log.Println("[migrate] checking file_format column...")
+	var fileFormatColCount int
+	err = db.QueryRow(`SELECT COUNT(*) FROM information_schema.columns
+		WHERE table_name = 'printer_profiles' AND column_name = 'file_format'`).Scan(&fileFormatColCount)
+	if err != nil {
+		return fmt.Errorf("check file_format column: %w", err)
+	}
+	if fileFormatColCount == 0 {
+		if _, err := db.Exec(`ALTER TABLE printer_profiles ADD COLUMN file_format TEXT NOT NULL DEFAULT 'photon'`); err != nil {
+			return fmt.Errorf("add file_format column: %w", err)
+		}
+	}
+
 	// Seed printer profiles
 	log.Println("[migrate] seeding printer profiles...")
 	if err := seedPrinterProfiles(db); err != nil {

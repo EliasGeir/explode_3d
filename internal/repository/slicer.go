@@ -20,7 +20,7 @@ func NewSlicerRepository(db *sql.DB) *SlicerRepository {
 func (r *SlicerRepository) GetAllProfiles() ([]models.PrinterProfile, error) {
 	rows, err := r.db.Query(`
 		SELECT id, name, manufacturer, build_width_mm, build_depth_mm, build_height_mm,
-		       resolution_x, resolution_y, pixel_size_um, is_built_in, created_at
+		       resolution_x, resolution_y, pixel_size_um, file_format, is_built_in, created_at
 		FROM printer_profiles
 		ORDER BY manufacturer, name`)
 	if err != nil {
@@ -32,7 +32,7 @@ func (r *SlicerRepository) GetAllProfiles() ([]models.PrinterProfile, error) {
 	for rows.Next() {
 		var p models.PrinterProfile
 		if err := rows.Scan(&p.ID, &p.Name, &p.Manufacturer, &p.BuildWidthMM, &p.BuildDepthMM,
-			&p.BuildHeightMM, &p.ResolutionX, &p.ResolutionY, &p.PixelSizeUM,
+			&p.BuildHeightMM, &p.ResolutionX, &p.ResolutionY, &p.PixelSizeUM, &p.FileFormat,
 			&p.IsBuiltIn, &p.CreatedAt); err != nil {
 			return nil, fmt.Errorf("scan profile: %w", err)
 		}
@@ -45,10 +45,10 @@ func (r *SlicerRepository) GetProfileByID(id int64) (*models.PrinterProfile, err
 	var p models.PrinterProfile
 	err := r.db.QueryRow(`
 		SELECT id, name, manufacturer, build_width_mm, build_depth_mm, build_height_mm,
-		       resolution_x, resolution_y, pixel_size_um, is_built_in, created_at
+		       resolution_x, resolution_y, pixel_size_um, file_format, is_built_in, created_at
 		FROM printer_profiles WHERE id = $1`, id).Scan(
 		&p.ID, &p.Name, &p.Manufacturer, &p.BuildWidthMM, &p.BuildDepthMM,
-		&p.BuildHeightMM, &p.ResolutionX, &p.ResolutionY, &p.PixelSizeUM,
+		&p.BuildHeightMM, &p.ResolutionX, &p.ResolutionY, &p.PixelSizeUM, &p.FileFormat,
 		&p.IsBuiltIn, &p.CreatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("get profile %d: %w", id, err)
@@ -57,13 +57,16 @@ func (r *SlicerRepository) GetProfileByID(id int64) (*models.PrinterProfile, err
 }
 
 func (r *SlicerRepository) CreateProfile(p *models.PrinterProfile) error {
+	if p.FileFormat == "" {
+		p.FileFormat = "photon"
+	}
 	return r.db.QueryRow(`
 		INSERT INTO printer_profiles (name, manufacturer, build_width_mm, build_depth_mm, build_height_mm,
-		                              resolution_x, resolution_y, pixel_size_um, is_built_in)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, FALSE)
+		                              resolution_x, resolution_y, pixel_size_um, file_format, is_built_in)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, FALSE)
 		RETURNING id`,
 		p.Name, p.Manufacturer, p.BuildWidthMM, p.BuildDepthMM, p.BuildHeightMM,
-		p.ResolutionX, p.ResolutionY, p.PixelSizeUM,
+		p.ResolutionX, p.ResolutionY, p.PixelSizeUM, p.FileFormat,
 	).Scan(&p.ID)
 }
 
@@ -71,10 +74,11 @@ func (r *SlicerRepository) UpdateProfile(p *models.PrinterProfile) error {
 	_, err := r.db.Exec(`
 		UPDATE printer_profiles
 		SET name = $1, manufacturer = $2, build_width_mm = $3, build_depth_mm = $4,
-		    build_height_mm = $5, resolution_x = $6, resolution_y = $7, pixel_size_um = $8
-		WHERE id = $9 AND is_built_in = FALSE`,
+		    build_height_mm = $5, resolution_x = $6, resolution_y = $7, pixel_size_um = $8,
+		    file_format = $9
+		WHERE id = $10 AND is_built_in = FALSE`,
 		p.Name, p.Manufacturer, p.BuildWidthMM, p.BuildDepthMM, p.BuildHeightMM,
-		p.ResolutionX, p.ResolutionY, p.PixelSizeUM, p.ID)
+		p.ResolutionX, p.ResolutionY, p.PixelSizeUM, p.FileFormat, p.ID)
 	return err
 }
 

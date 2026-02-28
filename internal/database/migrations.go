@@ -123,6 +123,7 @@ CREATE TABLE IF NOT EXISTS printer_profiles (
     resolution_x INTEGER NOT NULL,
     resolution_y INTEGER NOT NULL,
     pixel_size_um DOUBLE PRECISION NOT NULL,
+    file_format TEXT NOT NULL DEFAULT 'photon',
     is_built_in BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );

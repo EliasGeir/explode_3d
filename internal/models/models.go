@@ -14,6 +14,7 @@ type PrinterProfile struct {
 	ResolutionX   int       `json:"resolution_x"`
 	ResolutionY   int       `json:"resolution_y"`
 	PixelSizeUM   float64   `json:"pixel_size_um"`
+	FileFormat    string    `json:"file_format"` // "photon" or "dlp"
 	IsBuiltIn     bool      `json:"is_built_in"`
 	CreatedAt     time.Time `json:"created_at"`
 }
@@ -41,6 +42,7 @@ type SliceJob struct {
 	TotalLayers  int    `json:"total_layers"`
 	CurrentLayer int    `json:"current_layer"`
 	Message      string `json:"message"`
+	Extension    string `json:"extension"`
 	OutputPath   string `json:"-"`
 }
 
