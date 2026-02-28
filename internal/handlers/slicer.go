@@ -37,6 +37,13 @@ func (h *SlicerHandler) Page(w http.ResponseWriter, r *http.Request) {
 	fileIDsStr := r.URL.Query().Get("files")
 	modelIDStr := r.URL.Query().Get("model_id")
 
+	// If no files or model_id provided, redirect to home.
+	// This ensures the slicer is only accessible from the model detail page as requested.
+	if fileIDsStr == "" || modelIDStr == "" {
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+		return
+	}
+
 	var files []models.ModelFile
 	var modelID int64
 	var modelName string
