@@ -142,6 +142,21 @@ type FavoriteModel struct {
 	CategoryName  string // vuoto se nessuna categoria
 }
 
+type DuplicatePair struct {
+	ID         int64     `json:"id"`
+	ModelID1   int64     `json:"model_id_1"`
+	ModelID2   int64     `json:"model_id_2"`
+	Similarity float64   `json:"similarity"`
+	Status     string    `json:"status"` // pending, dismissed
+	DetectedAt time.Time `json:"detected_at"`
+	ResolvedAt *time.Time `json:"resolved_at,omitempty"`
+	ResolvedBy *int64    `json:"resolved_by,omitempty"`
+
+	// Joined fields
+	Model1 *Model3D `json:"model1,omitempty"`
+	Model2 *Model3D `json:"model2,omitempty"`
+}
+
 type FeedbackCategory struct {
 	ID        int64     `json:"id"`
 	Name      string    `json:"name"`

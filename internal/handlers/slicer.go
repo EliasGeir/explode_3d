@@ -315,6 +315,7 @@ func (h *SlicerHandler) StartSlice(w http.ResponseWriter, r *http.Request) {
 	fileIDsStr := r.FormValue("file_ids")
 	profileIDStr := r.FormValue("profile_id")
 	modelName := r.FormValue("model_name")
+	outputFormat := r.FormValue("output_format")
 
 	profileID, err := strconv.ParseInt(profileIDStr, 10, 64)
 	if err != nil {
@@ -394,10 +395,11 @@ func (h *SlicerHandler) StartSlice(w http.ResponseWriter, r *http.Request) {
 	}
 
 	req := slicer.SliceRequest{
-		FilePaths: filePaths,
-		Profile:   profile,
-		Settings:  settings,
-		ModelName: modelName,
+		FilePaths:  filePaths,
+		Profile:    profile,
+		Settings:   settings,
+		ModelName:  modelName,
+		FileFormat: outputFormat,
 	}
 
 	jobID, err := h.engine.StartSlice(req)

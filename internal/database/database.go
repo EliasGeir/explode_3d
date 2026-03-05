@@ -147,6 +147,36 @@ func migrate(db *sql.DB) error {
 		return fmt.Errorf("backfill user roles: %w", err)
 	}
 
+	// Conditional migration: enable pg_trgm extension and create duplicate_pairs table
+	log.Println("[migrate] checking pg_trgm and duplicate_pairs...")
+	if _, err := db.Exec(`CREATE EXTENSION IF NOT EXISTS pg_trgm`); err != nil {
+		log.Printf("[migrate] warning: could not enable pg_trgm extension: %v", err)
+	}
+
+	// Create GIN trigram index on model names for fast similarity queries
+	if _, err := db.Exec(`CREATE INDEX IF NOT EXISTS idx_models_name_trgm ON models USING GIN(name gin_trgm_ops)`); err != nil {
+		log.Printf("[migrate] warning: could not create trigram index: %v", err)
+	}
+
+	if _, err := db.Exec(`
+		CREATE TABLE IF NOT EXISTS duplicate_pairs (
+			id SERIAL PRIMARY KEY,
+			model_id_1 INTEGER NOT NULL REFERENCES models(id) ON DELETE CASCADE,
+			model_id_2 INTEGER NOT NULL REFERENCES models(id) ON DELETE CASCADE,
+			similarity DOUBLE PRECISION NOT NULL,
+			status TEXT NOT NULL DEFAULT 'pending',
+			detected_at TIMESTAMPTZ DEFAULT NOW(),
+			resolved_at TIMESTAMPTZ,
+			resolved_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+			UNIQUE(model_id_1, model_id_2)
+		);
+		CREATE INDEX IF NOT EXISTS idx_duplicate_pairs_status ON duplicate_pairs(status);
+		CREATE INDEX IF NOT EXISTS idx_duplicate_pairs_model1 ON duplicate_pairs(model_id_1);
+		CREATE INDEX IF NOT EXISTS idx_duplicate_pairs_model2 ON duplicate_pairs(model_id_2);
+	`); err != nil {
+		log.Printf("[migrate] warning: could not create duplicate_pairs table: %v", err)
+	}
+
 	log.Println("[migrate] all migrations complete")
 	return nil
 }

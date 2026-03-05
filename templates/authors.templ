@@ -16,7 +16,7 @@ templ AuthorsPage(authors []repository.AuthorWithCount) {
 				hx-post="/api/authors"
 				hx-target="#author-list"
 				hx-swap="innerHTML"
-				class="flex gap-3"
+				class="flex flex-col sm:flex-row gap-3"
 			>
 				<input
 					type="text"

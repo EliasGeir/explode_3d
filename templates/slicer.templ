@@ -126,6 +126,18 @@ templ SlicerPage(data SlicerPageData) {
 							@ProfileSelector(data.Profiles, data.SelectedProfileID)
 						}
 					</div>
+					<div class="mt-4 pt-4 border-t border-gray-700">
+						<label class="block text-xs text-gray-400 mb-1">{ i18n.T(ctx, "slicer.output_format") }</label>
+						<select
+							name="output_format"
+							id="output-format-select"
+							class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+							onchange="document.getElementById('slice-output-format').value = this.value"
+						>
+							<option value="photon" if selectedProfile(data).FileFormat == "photon" { selected }>Anycubic Photon (.photon)</option>
+							<option value="dlp" if selectedProfile(data).FileFormat == "dlp" { selected }>Generic DLP (.zip/run.txt)</option>
+						</select>
+					</div>
 				</div>
 
 				<!-- Print Settings -->
@@ -149,6 +161,11 @@ templ SlicerPage(data SlicerPageData) {
 						<input type="hidden" name="model_id" value={ fmt.Sprintf("%d", data.ModelID) }/>
 						<input type="hidden" name="model_name" value={ data.ModelName }/>
 						<input type="hidden" name="profile_id" id="slice-profile-id" value={ fmt.Sprintf("%d", data.SelectedProfileID) }/>
+						if selectedProfile(data).FileFormat != "" {
+							<input type="hidden" name="output_format" id="slice-output-format" value={ selectedProfile(data).FileFormat }/>
+						} else {
+							<input type="hidden" name="output_format" id="slice-output-format" value="photon"/>
+						}
 						<button
 							type="submit"
 							class="w-full bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-3 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
@@ -183,6 +200,7 @@ templ ProfileSelector(profiles []models.PrinterProfile, selectedID int64) {
 				data-width={ fmtFloat(p.BuildWidthMM) }
 				data-depth={ fmtFloat(p.BuildDepthMM) }
 				data-height={ fmtFloat(p.BuildHeightMM) }
+				data-format={ p.FileFormat }
 			>
 				{ p.Manufacturer } { p.Name }
 			</option>
@@ -199,6 +217,14 @@ templ ProfileSelector(profiles []models.PrinterProfile, selectedID int64) {
 				// Update hidden profile_id
 				var hiddenInput = document.getElementById('slice-profile-id');
 				if (hiddenInput) hiddenInput.value = id;
+
+				// Update output format select and hidden input if dataset.format is available
+				if (opt.dataset.format) {
+					var formatSelect = document.getElementById('output-format-select');
+					var formatHidden = document.getElementById('slice-output-format');
+					if (formatSelect) formatSelect.value = opt.dataset.format;
+					if (formatHidden) formatHidden.value = opt.dataset.format;
+				}
 
 				// Save selection in cookie (expires in 1 year)
 				document.cookie = 'slicer_profile_id=' + id + ';path=/;max-age=31536000;SameSite=Lax';

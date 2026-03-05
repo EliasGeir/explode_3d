@@ -45,11 +45,13 @@ func main() {
 	favRepo := repository.NewFavoritesRepository(db)
 
 	sc := scanner.New(cfg.ScanPath, modelRepo, tagRepo, categoryRepo, settingsRepo)
+	dupRepo := repository.NewDuplicateRepository(db)
 
-	// Start scheduler
+	// Start schedulers
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 	scanner.StartScheduler(ctx, sc, settingsRepo)
+	scanner.StartDuplicateScheduler(ctx, dupRepo, settingsRepo)
 
 	pageHandler := handlers.NewPageHandler(modelRepo, tagRepo, authorRepo, categoryRepo, favRepo, cfg.ScanPath)
 	favoritesHandler := handlers.NewFavoritesHandler(favRepo)
@@ -65,6 +67,7 @@ func main() {
 	feedbackHandler := handlers.NewFeedbackHandler(feedbackRepo)
 	slicerEngine := slicer.NewEngine()
 	slicerHandler := handlers.NewSlicerHandler(slicerRepo, modelRepo, slicerEngine, cfg.ScanPath)
+	duplicateHandler := handlers.NewDuplicateHandler(dupRepo, modelRepo, tagRepo, cfg.ScanPath)
 	langHandler := handlers.NewLangHandler()
 
 	r := chi.NewRouter()
@@ -167,6 +170,16 @@ func main() {
 		// Sezione Admin — solo ROLE_ADMIN
 		r.Group(func(r chi.Router) {
 			r.Use(authmw.RequireRole("ROLE_ADMIN"))
+
+			// Duplicates
+			r.Get("/duplicates", duplicateHandler.Page)
+			r.Get("/api/duplicates/list", duplicateHandler.ListPairs)
+			r.Post("/api/duplicates/detect", duplicateHandler.ForceDetection)
+			r.Get("/api/duplicates/status", duplicateHandler.DetectionStatus)
+			r.Get("/api/duplicates/compare", duplicateHandler.Compare)
+			r.Post("/api/duplicates/keep-both", duplicateHandler.KeepBoth)
+			r.Post("/api/duplicates/keep-one", duplicateHandler.KeepOne)
+
 			r.Post("/api/settings/scan", settingsHandler.ForceScan)
 			r.Put("/api/settings", settingsHandler.SaveSettings)
 			r.Put("/api/settings/scanner-depth", settingsHandler.SaveScannerDepth)

@@ -61,7 +61,7 @@ func TagsPage(tags []repository.TagWithCount) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "</h2><form hx-post=\"/api/tags\" hx-target=\"#tag-list\" hx-swap=\"innerHTML\" class=\"flex gap-3 items-center\"><input type=\"text\" name=\"name\" placeholder=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "</h2><form hx-post=\"/api/tags\" hx-target=\"#tag-list\" hx-swap=\"innerHTML\" class=\"flex flex-wrap gap-3 items-center\"><input type=\"text\" name=\"name\" placeholder=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

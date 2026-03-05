@@ -35,7 +35,7 @@ func CategorySidebar(categories []models.Category, currentCategoryID *int64) tem
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"bg-gray-800 rounded-lg p-4 sticky top-4\"><h3 class=\"text-lg font-semibold text-white mb-4\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"bg-gray-800 rounded-lg p-4 md:sticky md:top-4\"><h3 class=\"text-lg font-semibold text-white mb-4\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

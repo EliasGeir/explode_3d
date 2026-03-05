@@ -32,8 +32,8 @@ templ settingsContent(data SettingsData) {
 		<h1 class="text-2xl font-bold text-white">{ i18n.T(ctx, "settings.title") }</h1>
 
 		<!-- Tabs -->
-		<div class="border-b border-gray-700">
-			<nav class="flex space-x-4" aria-label="Tabs">
+		<div class="border-b border-gray-700 overflow-x-auto">
+			<nav class="flex space-x-2 min-w-max" aria-label="Tabs">
 				if data.IsAdmin {
 					<a
 						href="/settings?tab=scanner"
@@ -91,7 +91,7 @@ templ scannerTab(data SettingsData) {
 			<h2 class="text-lg font-semibold text-white">{ i18n.T(ctx, "settings.scanner") }</h2>
 
 			<!-- Status & Force Scan -->
-			<div class="flex items-center justify-between">
+			<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
 				<div>
 					<p class="text-sm text-gray-400">
 						if data.LastScanAt != "" {
@@ -392,7 +392,7 @@ templ CreateUserForm(errMsg string) {
 		hx-swap="innerHTML"
 		class="space-y-4"
 	>
-		<div class="grid grid-cols-2 gap-4">
+		<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
 			<div>
 				<label class="block text-sm font-medium text-gray-300 mb-1">{ i18n.T(ctx, "auth.username") }</label>
 				<input
@@ -629,7 +629,7 @@ templ PrinterProfilesList(profiles []models.PrinterProfile) {
 								hx-swap="innerHTML"
 								class="space-y-3"
 							>
-								<div class="grid grid-cols-2 gap-3">
+								<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
 									<div>
 										<label class="block text-xs text-gray-400 mb-1">{ i18n.T(ctx, "slicer.profile_name") }</label>
 										<input type="text" name="name" value={ p.Name } required
@@ -641,7 +641,7 @@ templ PrinterProfilesList(profiles []models.PrinterProfile) {
 											class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"/>
 									</div>
 								</div>
-								<div class="grid grid-cols-3 gap-3">
+								<div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
 									<div>
 										<label class="block text-xs text-gray-400 mb-1">{ i18n.T(ctx, "slicer.build_width") }</label>
 										<input type="number" name="build_width_mm" value={ fmtFloat(p.BuildWidthMM) } step="0.1" required
@@ -658,7 +658,7 @@ templ PrinterProfilesList(profiles []models.PrinterProfile) {
 											class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"/>
 									</div>
 								</div>
-								<div class="grid grid-cols-4 gap-3">
+								<div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
 									<div>
 										<label class="block text-xs text-gray-400 mb-1">{ i18n.T(ctx, "slicer.resolution_x") }</label>
 										<input type="number" name="resolution_x" value={ fmt.Sprintf("%d", p.ResolutionX) } required
@@ -724,7 +724,7 @@ templ PrinterProfileForm(profile *models.PrinterProfile, errMsg string) {
 		class="space-y-4"
 		hx-on::after-request="if(event.detail.successful) this.reset()"
 	>
-		<div class="grid grid-cols-2 gap-4">
+		<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
 			<div>
 				<label class="block text-sm font-medium text-gray-300 mb-1">{ i18n.T(ctx, "slicer.profile_name") }</label>
 				<input type="text" name="name" required placeholder="My Printer"
@@ -736,7 +736,7 @@ templ PrinterProfileForm(profile *models.PrinterProfile, errMsg string) {
 					class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"/>
 			</div>
 		</div>
-		<div class="grid grid-cols-3 gap-4">
+		<div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
 			<div>
 				<label class="block text-sm font-medium text-gray-300 mb-1">{ i18n.T(ctx, "slicer.build_width") }</label>
 				<input type="number" name="build_width_mm" step="0.1" required placeholder="130"
@@ -753,7 +753,7 @@ templ PrinterProfileForm(profile *models.PrinterProfile, errMsg string) {
 					class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"/>
 			</div>
 		</div>
-		<div class="grid grid-cols-4 gap-4">
+		<div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
 			<div>
 				<label class="block text-sm font-medium text-gray-300 mb-1">{ i18n.T(ctx, "slicer.resolution_x") }</label>
 				<input type="number" name="resolution_x" required placeholder="2560"

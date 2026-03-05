@@ -1,0 +1,339 @@
+package templates
+
+import (
+	"fmt"
+	"3dmodels/internal/i18n"
+	"3dmodels/internal/models"
+)
+
+type DuplicatesData struct {
+	Pairs      []models.DuplicatePair
+	Total      int
+	Page       int
+	TotalPages int
+	IsRunning  bool
+}
+
+type DuplicateCompareData struct {
+	PairID     int64
+	Model1     models.Model3D
+	Model2     models.Model3D
+	Images1    []string
+	Images2    []string
+	Similarity float64
+}
+
+templ DuplicatesPage(data DuplicatesData) {
+	<div class="space-y-6">
+		<!-- Header -->
+		<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+			<div>
+				<h1 class="text-2xl font-bold text-white">{ i18n.T(ctx, "duplicates.title") }</h1>
+				<p class="text-sm text-gray-400 mt-1">{ i18n.T(ctx, "duplicates.description") }</p>
+			</div>
+			<div class="flex items-center gap-4 flex-shrink-0">
+				<div id="detection-status"></div>
+				<button
+					hx-post="/api/duplicates/detect"
+					hx-target="#detection-status"
+					hx-swap="innerHTML"
+					class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+				>
+					<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+					</svg>
+					{ i18n.T(ctx, "duplicates.force_detection") }
+				</button>
+			</div>
+		</div>
+		<!-- Pairs list + compare area -->
+		<div id="duplicates-content">
+			@DuplicatePairList(data)
+		</div>
+	</div>
+}
+
+templ DuplicatePairList(data DuplicatesData) {
+	if len(data.Pairs) == 0 && data.Total == 0 {
+		<div class="bg-gray-800 rounded-lg p-12 text-center">
+			<svg class="w-16 h-16 text-gray-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+			</svg>
+			<h3 class="text-lg font-medium text-gray-300">{ i18n.T(ctx, "duplicates.no_duplicates") }</h3>
+			<p class="text-sm text-gray-500 mt-2">{ i18n.T(ctx, "duplicates.no_duplicates_hint") }</p>
+		</div>
+	} else {
+		<div class="space-y-3" id="dup-pair-list">
+			<div class="flex items-center justify-between">
+				<p class="text-sm text-gray-400">
+					{ i18n.T(ctx, "duplicates.pairs_found", data.Total) }
+				</p>
+				if data.TotalPages > 1 {
+					<p class="text-sm text-gray-500">
+						{ i18n.T(ctx, "home.page_info", data.Page, data.TotalPages) }
+					</p>
+				}
+			</div>
+			for _, pair := range data.Pairs {
+				<div
+					class="bg-gray-800 rounded-lg p-4 hover:bg-gray-750 transition-colors cursor-pointer border border-gray-700 hover:border-indigo-500/50"
+					hx-get={ fmt.Sprintf("/api/duplicates/compare?pair_id=%d", pair.ID) }
+					hx-target="#duplicates-content"
+					hx-swap="innerHTML"
+				>
+					<div class="flex items-center gap-4">
+						<!-- Model 1 thumbnail -->
+						<div class="w-14 h-14 rounded-lg bg-gray-700 flex-shrink-0 overflow-hidden flex items-center justify-center">
+							if pair.Model1 != nil && pair.Model1.ThumbnailPath != "" {
+								<img src={ fileURL(pair.Model1.ThumbnailPath) } alt={ pair.Model1.Name } class="w-full h-full object-cover"/>
+							} else {
+								<svg class="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+								</svg>
+							}
+						</div>
+						<!-- Info -->
+						<div class="flex-1 min-w-0">
+							<div class="flex items-center gap-2">
+								<span class="text-sm font-medium text-white truncate">
+									if pair.Model1 != nil {
+										{ pair.Model1.Name }
+									}
+								</span>
+								<svg class="w-4 h-4 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path>
+								</svg>
+								<span class="text-sm font-medium text-white truncate">
+									if pair.Model2 != nil {
+										{ pair.Model2.Name }
+									}
+								</span>
+							</div>
+							<div class="hidden sm:flex items-center gap-4 mt-1">
+								<span class="text-xs text-gray-500 font-mono truncate">
+									if pair.Model1 != nil {
+										{ pair.Model1.Path }
+									}
+								</span>
+								<span class="text-xs text-gray-500">|</span>
+								<span class="text-xs text-gray-500 font-mono truncate">
+									if pair.Model2 != nil {
+										{ pair.Model2.Path }
+									}
+								</span>
+							</div>
+						</div>
+						<!-- Model 2 thumbnail -->
+						<div class="w-14 h-14 rounded-lg bg-gray-700 flex-shrink-0 overflow-hidden flex items-center justify-center">
+							if pair.Model2 != nil && pair.Model2.ThumbnailPath != "" {
+								<img src={ fileURL(pair.Model2.ThumbnailPath) } alt={ pair.Model2.Name } class="w-full h-full object-cover"/>
+							} else {
+								<svg class="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+								</svg>
+							}
+						</div>
+						<!-- Similarity badge -->
+						<div class="flex-shrink-0">
+							<span class={ "px-2 py-1 rounded-full text-xs font-bold",
+								templ.KV("bg-red-600/30 text-red-300", pair.Similarity >= 0.8),
+								templ.KV("bg-amber-600/30 text-amber-300", pair.Similarity >= 0.6 && pair.Similarity < 0.8),
+								templ.KV("bg-yellow-600/30 text-yellow-300", pair.Similarity < 0.6) }>
+								{ fmt.Sprintf("%.0f%%", pair.Similarity*100) }
+							</span>
+						</div>
+					</div>
+				</div>
+			}
+			<!-- Pagination -->
+			if data.TotalPages > 1 {
+				<div class="flex items-center justify-center gap-4 pt-4">
+					if data.Page > 1 {
+						<button
+							hx-get={ fmt.Sprintf("/api/duplicates/list?page=%d", data.Page-1) }
+							hx-target="#duplicates-content"
+							hx-swap="innerHTML"
+							class="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+						>
+							{ i18n.T(ctx, "home.previous") }
+						</button>
+					}
+					<span class="text-sm text-gray-400">
+						{ i18n.T(ctx, "home.page_info", data.Page, data.TotalPages) }
+					</span>
+					if data.Page < data.TotalPages {
+						<button
+							hx-get={ fmt.Sprintf("/api/duplicates/list?page=%d", data.Page+1) }
+							hx-target="#duplicates-content"
+							hx-swap="innerHTML"
+							class="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+						>
+							{ i18n.T(ctx, "home.next") }
+						</button>
+					}
+				</div>
+			}
+		</div>
+	}
+}
+
+templ DuplicateCompare(data DuplicateCompareData) {
+	<!-- Back button -->
+	<div class="mb-4">
+		<button
+			hx-get="/api/duplicates/list"
+			hx-target="#duplicates-content"
+			hx-swap="innerHTML"
+			class="text-indigo-400 hover:text-indigo-300 text-sm flex items-center gap-1"
+		>
+			&larr; { i18n.T(ctx, "duplicates.back_to_list") }
+		</button>
+	</div>
+	<!-- Similarity indicator -->
+	<div class="text-center mb-4">
+		<span class={ "px-3 py-1 rounded-full text-sm font-bold",
+			templ.KV("bg-red-600/30 text-red-300", data.Similarity >= 0.8),
+			templ.KV("bg-amber-600/30 text-amber-300", data.Similarity >= 0.6 && data.Similarity < 0.8),
+			templ.KV("bg-yellow-600/30 text-yellow-300", data.Similarity < 0.6) }>
+			{ i18n.T(ctx, "duplicates.similarity") }: { fmt.Sprintf("%.0f%%", data.Similarity*100) }
+		</span>
+	</div>
+	<!-- Split view -->
+	<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+		@duplicateModelCard(data.Model1, data.Images1, "1")
+		@duplicateModelCard(data.Model2, data.Images2, "2")
+	</div>
+	<!-- Action buttons -->
+	<div class="mt-6 bg-gray-800 rounded-lg p-4 border border-gray-700">
+		<div class="flex flex-col sm:flex-row gap-3 justify-center">
+			<button
+				hx-post="/api/duplicates/keep-both"
+				hx-vals={ fmt.Sprintf(`{"pair_id":"%d"}`, data.PairID) }
+				hx-target="#duplicates-content"
+				hx-swap="innerHTML"
+				hx-confirm={ i18n.T(ctx, "duplicates.confirm_keep_both") }
+				class="flex-1 bg-gray-600 hover:bg-gray-500 text-white px-4 py-3 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+			>
+				<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+				</svg>
+				{ i18n.T(ctx, "duplicates.keep_both") }
+			</button>
+			<button
+				hx-post="/api/duplicates/keep-one"
+				hx-vals={ fmt.Sprintf(`{"pair_id":"%d","delete_model_id":"%d"}`, data.PairID, data.Model2.ID) }
+				hx-target="#duplicates-content"
+				hx-swap="innerHTML"
+				hx-confirm={ i18n.T(ctx, "duplicates.confirm_keep_1", data.Model1.Name, data.Model2.Name) }
+				class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-3 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+			>
+				<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+				</svg>
+				{ i18n.T(ctx, "duplicates.keep_element_1") }
+			</button>
+			<button
+				hx-post="/api/duplicates/keep-one"
+				hx-vals={ fmt.Sprintf(`{"pair_id":"%d","delete_model_id":"%d"}`, data.PairID, data.Model1.ID) }
+				hx-target="#duplicates-content"
+				hx-swap="innerHTML"
+				hx-confirm={ i18n.T(ctx, "duplicates.confirm_keep_2", data.Model2.Name, data.Model1.Name) }
+				class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-3 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+			>
+				<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+				</svg>
+				{ i18n.T(ctx, "duplicates.keep_element_2") }
+			</button>
+		</div>
+		<p class="text-xs text-gray-500 text-center mt-3">
+			{ i18n.T(ctx, "duplicates.action_warning") }
+		</p>
+	</div>
+}
+
+templ duplicateModelCard(model models.Model3D, images []string, label string) {
+	<div class="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+		<!-- Header -->
+		<div class="bg-gray-750 px-4 py-3 border-b border-gray-700 flex items-center justify-between">
+			<div class="flex items-center gap-2">
+				<span class="bg-indigo-600 text-white text-xs font-bold px-2 py-0.5 rounded">{ label }</span>
+				<a href={ templ.SafeURL(fmt.Sprintf("/models/%d", model.ID)) } class="text-white font-medium hover:text-indigo-400 transition-colors truncate" target="_blank">
+					{ model.Name }
+				</a>
+			</div>
+		</div>
+		<!-- Thumbnail / first image -->
+		<div class="aspect-[4/3] bg-gray-900 flex items-center justify-center">
+			if model.ThumbnailPath != "" {
+				<img src={ fileURL(model.ThumbnailPath) } alt={ model.Name } class="w-full h-full object-contain"/>
+			} else if len(images) > 0 {
+				<img src={ fileURL(images[0]) } alt={ model.Name } class="w-full h-full object-contain"/>
+			} else {
+				<svg class="w-16 h-16 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+				</svg>
+			}
+		</div>
+		<!-- Details -->
+		<div class="p-4 space-y-3">
+			<!-- Path -->
+			<div>
+				<span class="text-xs text-gray-500 uppercase tracking-wider">{ i18n.T(ctx, "model.path") }</span>
+				<p class="text-xs text-gray-300 font-mono mt-0.5 break-all">{ model.Path }</p>
+			</div>
+			<!-- Author -->
+			if model.Author != nil {
+				<div>
+					<span class="text-xs text-gray-500 uppercase tracking-wider">{ i18n.T(ctx, "model.author") }</span>
+					<p class="text-sm text-gray-300 mt-0.5">{ model.Author.Name }</p>
+				</div>
+			}
+			<!-- Notes -->
+			if model.Notes != "" {
+				<div>
+					<span class="text-xs text-gray-500 uppercase tracking-wider">{ i18n.T(ctx, "model.notes") }</span>
+					<p class="text-sm text-gray-300 mt-0.5">{ model.Notes }</p>
+				</div>
+			}
+			<!-- Tags -->
+			if len(model.Tags) > 0 {
+				<div>
+					<span class="text-xs text-gray-500 uppercase tracking-wider">{ i18n.T(ctx, "model.tags") }</span>
+					<div class="flex flex-wrap gap-1 mt-1">
+						for _, t := range model.Tags {
+							<span class="px-2 py-0.5 rounded-full text-xs font-medium text-white" style={ fmt.Sprintf("background-color: %s", t.Color) }>
+								{ t.Name }
+							</span>
+						}
+					</div>
+				</div>
+			}
+			<!-- Files count -->
+			<div>
+				<span class="text-xs text-gray-500 uppercase tracking-wider">{ i18n.T(ctx, "duplicates.files") }</span>
+				<p class="text-sm text-gray-300 mt-0.5">{ fmt.Sprintf("%d", len(model.Files)) } files</p>
+			</div>
+			<!-- Images -->
+			if len(images) > 1 {
+				<div>
+					<span class="text-xs text-gray-500 uppercase tracking-wider">{ i18n.T(ctx, "duplicates.images") }</span>
+					<div class="grid grid-cols-4 gap-1 mt-1">
+						for i, img := range images {
+							if i < 8 {
+								<div class="aspect-square rounded overflow-hidden bg-gray-700">
+									<img src={ fileURL(img) } alt="" class="w-full h-full object-cover" loading="lazy"/>
+								</div>
+							}
+						}
+						if len(images) > 8 {
+							<div class="aspect-square rounded overflow-hidden bg-gray-700 flex items-center justify-center">
+								<span class="text-xs text-gray-400">+{ fmt.Sprintf("%d", len(images)-8) }</span>
+							</div>
+						}
+					</div>
+				</div>
+			}
+		</div>
+	</div>
+}

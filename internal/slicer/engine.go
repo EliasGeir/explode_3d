@@ -29,10 +29,11 @@ func NewEngine() *Engine {
 }
 
 type SliceRequest struct {
-	FilePaths []string
-	Profile   *models.PrinterProfile
-	Settings  *models.PrintSettings
-	ModelName string
+	FilePaths  []string
+	Profile    *models.PrinterProfile
+	Settings   *models.PrintSettings
+	ModelName  string
+	FileFormat string // "photon" or "dlp" (overrides profile)
 }
 
 func (e *Engine) StartSlice(req SliceRequest) (string, error) {
@@ -264,7 +265,11 @@ func (e *Engine) sliceWorker(job *models.SliceJob, req SliceRequest) {
 	e.mu.Unlock()
 
 	// Step 3: Slice each layer
-	isDLP := req.Profile.FileFormat == "dlp"
+	fileFormat := req.FileFormat
+	if fileFormat == "" {
+		fileFormat = req.Profile.FileFormat
+	}
+	isDLP := fileFormat == "dlp"
 	var encodedLayers [][]byte
 	var dlpLayers []*image.Gray
 
